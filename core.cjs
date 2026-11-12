@@ -5,14 +5,15 @@ class Store{
  constructor(directory){this.directory=directory;this.file=path.join(directory,'data.json');fs.mkdirSync(directory,{recursive:true});this.data=fs.existsSync(this.file)?JSON.parse(fs.readFileSync(this.file,'utf8')):{version:1,properties:[],comps:{},assignments:{},snapshots:{},ownCalendars:{},usage:[]};}
  save(){const temp=this.file+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.data));fs.renameSync(temp,this.file);if(this.remote)this.remote.save(this.backup());}
  flush(){return this.remote?this.remote.flush():Promise.resolve();}
- backup(){return {version:1,includedPropertyIds:this.data.includedPropertyIds??null,propertyOrder:this.data.propertyOrder||[],properties:this.data.properties,compMasters:this.data.compMasters||{},comps:this.data.comps,assignments:this.data.assignments,snapshots:this.data.snapshots,ownCalendars:this.data.ownCalendars,usage:this.data.usage};}
- latest(id,type){const types=type==='rates'?['rates','calendar']:['calendar'];return types.map(t=>this.data.snapshots[id+':'+t]).filter(Boolean).sort((a,b)=>b.fetchedAt.localeCompare(a.fetchedAt))[0]||null;}
+ backup(){return {version:1,includedPropertyIds:this.data.includedPropertyIds??null,propertyOrder:this.data.propertyOrder||[],properties:this.data.properties,propertyLinks:this.data.propertyLinks||{},compMasters:this.data.compMasters||{},comps:this.data.comps,assignments:this.data.assignments,snapshots:this.data.snapshots,ownCalendars:this.data.ownCalendars,usage:this.data.usage};}
+ latest(id,type){const types=type==='details'?['details']:type==='rates'?['rates','calendar']:['calendar'];return types.map(t=>this.data.snapshots[id+':'+t]).filter(Boolean).sort((a,b)=>b.fetchedAt.localeCompare(a.fetchedAt))[0]||null;}
  master(propertyId){const seen=new Set();let id=propertyId;while(this.data.compMasters?.[id]){if(seen.has(id))throw fail(400,'Comp sharing cannot contain a cycle.');seen.add(id);id=this.data.compMasters[id];}return id;}
  assignment(propertyId){return [...new Set(this.data.assignments[this.master(propertyId)]||[])];}
 }
 class Scans{
  constructor(store,providers){this.store=store;this.providers=providers;this.plans=new Map();this.jobs=new Map();this.activeJob=null;}
  plan(input){
+  if(input.type==='details')return this.detailsPlan(input);
   const propertyIds=[...new Set(input.propertyIds||[])];if(!propertyIds.length||propertyIds.some(id=>!this.store.data.properties.some(p=>p.id===id)))throw fail(400,'Select existing properties.');
   if(propertyIds.some(id=>this.store.master(id)!==id))throw fail(400,'Refresh shared comps from their master property only.');
   if(this.store.data.includedPropertyIds&&propertyIds.some(id=>!this.store.data.includedPropertyIds.includes(id)))throw fail(400,'This property is unchecked in Settings.');const type=input.type==='calendar'?'calendar':'rates',ageDays=Number(input.ageDays||14);if(![7,14,30].includes(ageDays))throw fail(400,'Choose a 7, 14, or 30-day refresh period.');
@@ -22,6 +23,12 @@ class Scans{
   const now=Date.now(),due=ids.filter(id=>{const saved=this.store.latest(id,type);return input.force||!saved||now-Date.parse(saved.fetchedAt)>=ageDays*86400000;});
   const plan={id:crypto.randomUUID(),createdAt:new Date().toISOString(),expiresAt:now+5*60000,propertyIds,ids,due,type,ageDays,force:Boolean(input.force),costPerCall:type==='rates'?.10:.20,estimatedCost:Number((due.length*(type==='rates'?.10:.20)).toFixed(2)),cached:ids.length-due.length};
   for(const [id,p]of this.plans)if(p.expiresAt<now&&!p.jobId)this.plans.delete(id);this.plans.set(plan.id,plan);return plan;
+ }
+ detailsPlan(input){
+  const propertyIds=[...new Set(input.propertyIds||[])];if(propertyIds.length!==1)throw fail(400,'Select one property for ratings and fees.');const p=this.store.data.properties.find(p=>p.id===propertyIds[0]);if(!p||this.store.data.includedPropertyIds&&!this.store.data.includedPropertyIds.includes(p.id))throw fail(400,'Choose an included property.');
+  const ownId=this.store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId;if(!ownId)throw fail(400,'Add your Airbnb listing URL in this property’s settings first.');
+  const ids=[...new Set([parseListing(ownId),...this.store.assignment(p.id)])],now=Date.now(),due=ids.filter(id=>{const saved=this.store.latest(id,'details');return input.force||!saved||now-Date.parse(saved.fetchedAt)>=30*86400000;});
+  const plan={id:crypto.randomUUID(),createdAt:new Date().toISOString(),expiresAt:now+300000,propertyIds,ids,due,type:'details',ageDays:30,force:Boolean(input.force),costPerCall:.10,estimatedCost:Number((due.length*.10).toFixed(2)),cached:ids.length-due.length};this.plans.set(plan.id,plan);return plan;
  }
  start(id,budget){const plan=this.plans.get(id);if(!plan||plan.expiresAt<Date.now())throw fail(400,'Scan estimate expired. Review a new estimate.');if(plan.jobId)return this.jobs.get(plan.jobId);if(this.activeJob)throw fail(409,'A scan is already running. Its data will be reused when it finishes.');if(!this.providers.status().airroi&&plan.due.length)throw fail(400,'Connect AirROI before scanning.');if(!Number.isFinite(budget)||budget<plan.estimatedCost)throw fail(400,'The scan exceeds your allowed budget.');
   const job={id:crypto.randomUUID(),status:'running',total:plan.due.length,processed:0,attempted:0,succeeded:0,errors:[],estimatedSpend:0,startedAt:new Date().toISOString(),planId:plan.id};plan.jobId=job.id;this.jobs.set(job.id,job);this.activeJob=job.id;

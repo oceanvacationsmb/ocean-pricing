@@ -4,7 +4,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
  const auth=hosting?new (require('./auth.cjs').DashboardAuth)(hosting):null;
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
- const bootstrap=()=>({properties:store.data.properties,includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
+ const bootstrap=()=>({properties:store.data.properties.map(p=>({...p,airbnbListingId:store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId||null})),includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
  const server=http.createServer(async(req,res)=>{
   const host=req.headers.host||'';
   if(hosting&&req.method==='GET'&&req.url==='/healthz')return send(res,200,{ok:true});
@@ -20,6 +20,23 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
     const key=req.method+' '+route;
     if(req.method==='POST'&&key!=='POST /api/render-keys'&&(renderKeys?.busy||renderKeys?.deploying))throw fail(409,'Render is updating API keys. Wait for the deployment to finish, then reload before making more changes.');
     if(key==='GET /api/state')return send(res,200,bootstrap());
+    if(key==='POST /api/guesty/channel-links'){
+ const p=store.data.properties.find(p=>p.id===body.propertyId);if(!p)throw fail(400,'Choose an existing property.');
+ const raw=await providers.guestyGet('/listings/'+encodeURIComponent(p.id)+'?fields='+encodeURIComponent('_id integrations channels'));
+ const links=require('./providers.cjs').channelLinks(raw);if(!Object.keys(links).length)throw fail(502,'Guesty did not return published channel links. Existing links were kept.');
+ p.channelLinks={...p.channelLinks,...links};if(links.airbnb)p.airbnbListingId=links.airbnb.match(/rooms\/(\d+)/)[1];store.save();scans.plans.clear();return send(res,200,bootstrap());}
+    if(key==='POST /api/property-link'){
+     if(scans.activeJob)throw fail(409,'Wait for the current scan to finish.');
+     if(!store.data.properties.some(p=>p.id===body.propertyId))throw fail(400,'Choose an existing property.');
+     const airbnbListingId=parseListing(body.url);store.data.propertyLinks||={};store.data.propertyLinks[body.propertyId]={...store.data.propertyLinks[body.propertyId],airbnbListingId};store.save();scans.plans.clear();return send(res,200,bootstrap());
+    }
+    if(key==='POST /api/guesty/extra-fees'){
+     if(!store.data.properties.some(p=>p.id===body.propertyId))throw fail(400,'Choose an existing property.');
+     const result=await providers.guestyGet('/additional-fees/listing/'+encodeURIComponent(body.propertyId)),rows=Array.isArray(result)?result:result?.results||result?.additionalFees;
+     if(!Array.isArray(rows))throw fail(502,'Guesty fee response was not recognized. Saved fees were kept.');
+     const fees=rows.map(f=>({name:String(f.name||f.title||f.secondIdentifier||'Additional fee').slice(0,100),amount:Number.isFinite(Number(f.amount))&&f.amount!==null&&f.amount!==undefined&&f.amount!==''?Number(f.amount):null,units:typeof f.type==='string'?f.type.slice(0,50):null,quantifier:typeof f.quantifier==='string'?f.quantifier.slice(0,50):null}));
+     store.data.propertyLinks||={};store.data.propertyLinks[body.propertyId]={...store.data.propertyLinks[body.propertyId],extraFees:fees,feesFetchedAt:new Date().toISOString()};store.save();return send(res,200,{fees});
+    }
     if(key==='POST /api/render-keys'){
      if(!hosting||!renderKeys)throw fail(400,'One-time setup needed: add RENDER_API_KEY to this service in Render, then deploy. Do not enter that key here.');
      if(scans.activeJob||calendarFlights.size)throw fail(409,'Wait for scans and rate refreshes to finish before updating keys.');

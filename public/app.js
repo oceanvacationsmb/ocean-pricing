@@ -157,7 +157,7 @@ function renderExpandedCalendar(propertyId=null){
    return {...state.comps[id],id,snapshot};
   });
   const cell=(date,html,extra='')=>'<td class="'+(date===today()?'today-column ':'')+extra+'">'+html+'</td>';
-  body+='<tr class="expanded-own '+(index%2?'shade-gray':'shade-white')+'"><th scope="row">'+esc(p.name)+'<small>'+(p.bedrooms===0?'Studio':(p.bedrooms??'—')+' br')+' · Clean '+fee(p.cleaningFee)+'</small></th>'+dates.map(date=>{const d=own.get(date);return cell(date,d?money(d.rate)+(d.locked?' 🔒':d.available===false?' ⊘':'')+minimumStay(d):'—',d?.available===false?'unavailable':'');}).join('')+'</tr>';
+  body+='<tr class="expanded-own '+(index%2?'shade-gray':'shade-white')+'"><th scope="row">'+esc(p.name)+(ratingProfile(p.airbnbListingId).rating?' ★'+ratingProfile(p.airbnbListingId).rating.toFixed(2):'')+'<small>'+(p.bedrooms===0?'Studio':(p.bedrooms??'—')+' br')+' · Clean '+fee(p.cleaningFee)+'</small></th>'+dates.map(date=>{const d=own.get(date);return cell(date,d?money(d.rate)+(d.locked?' 🔒':d.available===false?' ⊘':'')+minimumStay(d):'—',d?.available===false?'unavailable':'');}).join('')+'</tr>';
   const compMaps=comps.map(c=>new Map((c.snapshot?.days||[]).map(d=>[d.date,d])));
   for(const [i,c] of comps.entries())body+='<tr class="expanded-comp"><th scope="row">'+(c.url?'<a href="'+esc(c.url)+'" target="_blank" rel="noopener noreferrer" title="'+esc(c.name)+'">'+esc(c.name)+'</a>':esc(c.name||c.id))+'<small>Cleaning: '+fee(c.snapshot?.cleaningFee)+'</small></th>'+dates.map(date=>{const d=compMaps[i].get(date);return cell(date,money(d?.rate)+(d?.available===false?' ⊘':'')+minimumStay(d),d?.available===false?'unavailable':'');}).join('')+'</tr>';
   body+='<tr class="expanded-suggested"><th scope="row">Suggested rate<small>AVG · within ±10%</small></th>'+dates.map(date=>{
@@ -171,20 +171,24 @@ function renderExpandedCalendar(propertyId=null){
 }
 async function openCalendarWindow(propertyId=null){
  if(!demo){savedBackup=await api('/backup');savedOwnCalendars=savedBackup.ownCalendars||{};rebuildOwnRates();}
- const p=properties().find(item=>item.id===propertyId);$('expandedTitle').textContent=p?p.name+' · competitors':'All properties & comps';
- popupPropertyId=propertyId;renderExpandedCalendar(propertyId);$('expandedDate').min=today();$('expandedDate').max=addDays(today(),calendarDays-1);$('expandedDate').value=$('jumpDate').value||today();
- $('expandedDialog').showModal();const box=document.querySelector('.expanded-scroll');box.scrollTop=0;box.scrollLeft=Math.max(0,days().indexOf($('expandedDate').value))*dateColumnWidth;renderPropertyInsights(p);
+ const p=properties().find(item=>item.id===propertyId);$('expandedTitle').textContent=p?p.name+' Full Comp Set':'All properties & comps';
+ popupPropertyId=propertyId;renderExpandedCalendar(propertyId);renderChannels(p);$('expandedDate').min=today();$('expandedDate').max=addDays(today(),calendarDays-1);$('expandedDate').value=$('jumpDate').value||today();
+ if(!$('expandedDialog').open)$('expandedDialog').showModal();const box=document.querySelector('.expanded-scroll');box.scrollTop=0;box.scrollLeft=Math.max(0,days().indexOf($('expandedDate').value))*dateColumnWidth;renderPropertyInsights(p);
 }
 function popupVisibleDates(){
  const box=document.querySelector('.expanded-scroll'),first=$('expandedCalendar').querySelector('thead th:first-child'),start=Math.max(0,Math.floor(box.scrollLeft/dateColumnWidth)),count=Math.max(1,Math.ceil((box.scrollLeft%dateColumnWidth+box.clientWidth-(first?.offsetWidth||220))/dateColumnWidth));
  return days().slice(start,Math.min(calendarDays,start+count));
 }
 function updateVisibleInsights(){if(!$('expandedDialog').open||!popupPropertyId)return;renderPropertyInsights(properties().find(p=>p.id===popupPropertyId));}
+function ratingProfile(id,name=''){return savedBackup?.snapshots?.[id+':details']||{rating:Number(name.match(/★\s*(\d(?:\.\d+)?)/)?.[1])||null};}
 function windowComparisonCards(p,view,dates){
  const comparison=PricingMath.windowComparisons(dates,view.own?.days||[],view.comps,p.cleaningFee),stay=comparison.minStay,clean=comparison.cleaning,availability=PricingMath.availabilityComparison(dates,view.own?.days||[],view.comps),night=v=>v===null?'—':Number(v.toFixed(1));
- const label=status=>({HIGH:'HIGH',LOW:'LOW',AVG:'AVG',MISSING:'NO DATA'}[status]);
+ const label=status=>({HIGH:'HIGH',LOW:'LOW',AVG:'AVG',MISSING:'NO DATA',SAVED:'SAVED'}[status]);
  const card=(title,status,values)=>'<article class="window-metric '+status.toLowerCase()+'"><div><h3>'+title+'</h3><b>'+label(status)+'</b></div><strong>'+values+'</strong></article>';
- return '<div class="window-metrics">'+card('Minimum nights',stay.status,'Yours '+night(stay.current)+' · Comps '+night(stay.comp)+' nights')+card('Cleaning fee',clean.status,'Yours '+fee(clean.current)+' · Comps '+fee(clean.comp))+'<article class="window-metric availability-compact"><div><h3>Booked / blocked</h3></div><strong>Yours '+(availability.ownPercent===null?'—':availability.ownPercent.toFixed(0)+'%')+' · Comps '+(availability.compPercent===null?'—':availability.compPercent.toFixed(0)+'%')+'</strong></article></div>';
+ const mine=ratingProfile(p.airbnbListingId),profiles=view.comps.map(c=>ratingProfile(c.id,c.name)),ratings=profiles.map(c=>c.rating).filter(v=>v>0),avg=ratings.length?ratings.reduce((a,b)=>a+b,0)/ratings.length:null;
+ const extra=profiles.map(c=>c.extraGuestFee).filter(v=>v!==null&&v!==undefined),ownFees=savedBackup?.propertyLinks?.[p.id]?.extraFees;
+ const more=card('★ Airbnb rating',mine.rating&&avg?(Math.abs(mine.rating-avg)<=.1?'AVG':mine.rating>avg?'HIGH':'LOW'):'MISSING','Yours '+(mine.rating?.toFixed(2)||'—')+' · Comps '+(avg?.toFixed(2)||'—'))+card('＋ Comp extra guest fee',extra.length?'SAVED':'MISSING',extra.length?fee(extra.reduce((a,b)=>a+b,0)/extra.length):'Not provided')+card('▤ Your additional fees',ownFees?'SAVED':'MISSING',ownFees?(ownFees.map(f=>esc(f.name)+': '+(f.amount===null?'—':f.amount)+(f.units?' '+esc(f.units):'')).join(' · ')||'None returned'):'Not loaded');
+ return '<div class="window-metrics">'+more+card('☾ Minimum nights',stay.status,'Yours '+night(stay.current)+' · Comps '+night(stay.comp)+' nights')+card('$ Cleaning fee',clean.status,'Yours '+fee(clean.current)+' · Comps '+fee(clean.comp))+'<article class="window-metric availability-compact"><div><h3>Booked / blocked</h3></div><strong>Yours '+(availability.ownPercent===null?'—':availability.ownPercent.toFixed(0)+'%')+' · Comps '+(availability.compPercent===null?'—':availability.compPercent.toFixed(0)+'%')+'</strong></article></div>';
 }
 function renderPropertyInsights(p){
  const panel=$('propertyInsights');panel.hidden=!p;if(!p){panel.innerHTML='';return;}
@@ -215,3 +219,15 @@ $('settingsDialog').addEventListener('close',clearRenderKeyFields);
 if(typeof window!=='undefined')window.addEventListener('pageshow',event=>{if(event.persisted&&state.hosted)window.location.reload();});
 
 function openApiSettings(){settingsButton.click();document.querySelector('.render-key-settings').open=true;}
+
+function renderChannels(p){$('channelLinks').innerHTML=['airbnb','vrbo'].filter(k=>p?.channelLinks?.[k]).map(k=>'<a target="_blank" rel="noopener noreferrer" href="'+esc(p.channelLinks[k])+'">'+(k==='airbnb'?'Airbnb':'Vrbo')+' ↗</a>').join(' · ');profilePlan=null;$('loadListingProfiles').textContent='★ Ratings & fees';}
+$('nextProperty').onclick=()=>task($('nextProperty'),async()=>{const list=properties(),index=list.findIndex(p=>p.id===popupPropertyId),box=document.querySelector('.expanded-scroll'),left=box.scrollLeft;await openCalendarWindow(list[(index+1)%list.length].id);box.scrollLeft=left;updateVisibleInsights();});
+$('syncChannels').onclick=()=>task($('syncChannels'),async()=>{state=await post('/guesty/channel-links',{propertyId:popupPropertyId});await loadSavedOwn();renderChannels(properties().find(p=>p.id===popupPropertyId));notice('Guesty channel links saved.');});
+$('refreshExtraFees').onclick=()=>task($('refreshExtraFees'),async()=>{await post('/guesty/extra-fees',{propertyId:popupPropertyId});await loadSavedOwn();updateVisibleInsights();});
+$('saveOwnAirbnb').onclick=()=>task($('saveOwnAirbnb'),async()=>{state=await post('/property-link',{propertyId:selected,url:$('ownAirbnbUrl').value});await loadSavedOwn();dialogMessage('compMessage','Your Airbnb link is saved.');});
+let profilePlan=null;
+$('loadListingProfiles').onclick=()=>task($('loadListingProfiles'),async()=>{
+ if(profilePlan&&profilePlan.propertyIds[0]===popupPropertyId){const plan=profilePlan;profilePlan=null;const job=await post('/scan',{planId:plan.id,maxCost:plan.estimatedCost,confirm:true});await watchJob(job.id);const left=document.querySelector('.expanded-scroll').scrollLeft;renderExpandedCalendar(popupPropertyId);document.querySelector('.expanded-scroll').scrollLeft=left;updateVisibleInsights();$('loadListingProfiles').textContent='★ Ratings & fees';return;}
+ let p=properties().find(p=>p.id===popupPropertyId);if(!p.airbnbListingId){state=await post('/guesty/channel-links',{propertyId:p.id});p=properties().find(x=>x.id===p.id);renderChannels(p);}
+ const plan=await post('/scan-plan',{propertyIds:[p.id],type:'details'});if(!plan.due.length){await loadSavedOwn();updateVisibleInsights();$('loadListingProfiles').textContent='★ Saved ratings loaded';return;}profilePlan=plan;$('loadListingProfiles').textContent='Load Airbnb ratings & fees · $'+plan.estimatedCost.toFixed(2);
+});
