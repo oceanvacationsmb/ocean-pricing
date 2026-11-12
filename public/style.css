@@ -52,3 +52,30 @@
 /* Keep the calendar workspace free of metadata and scan footnotes. */
 #propertyFacts,.calendar-footer{display:none!important}
 
+
+/* Alternate managed properties, independently of the number of comp rows. */
+#calendar .property-row.shade-white th,#calendar .property-row.shade-white td{background:#fff}
+#calendar .property-row.shade-gray th,#calendar .property-row.shade-gray td{background:#edf0f3}
+#calendar .property-row .today-column,#expandedCalendar .today-column{background:#fff4b8!important;border-left:2px solid #e7c34b;border-right:2px solid #e7c34b}
+#expandedDialog{width:min(96vw,1800px);max-width:none;height:88vh;max-height:94vh;overflow:hidden}
+#expandedDialog[open]{display:flex;flex-direction:column}
+#expandedDialog .dialog-head{flex:none;padding:14px 20px;background:white}
+.expanded-nav{display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid #d5e0e7;background:#f6f8fa;flex:none}
+.expanded-nav label{display:flex;align-items:center;gap:8px;font-size:12px}
+.expanded-nav input{min-height:30px;padding:4px 8px}
+.expanded-scroll{overflow:auto;flex:1;min-height:0}
+#expandedCalendar th,#expandedCalendar td{width:56px;min-width:56px;max-width:56px;height:38px;padding:4px 2px;font-size:11px}
+#expandedCalendar th:first-child{width:220px;min-width:220px;max-width:220px;padding:6px 10px}
+#expandedCalendar thead th{height:42px}
+#expandedCalendar small{display:block;font-size:9px;font-weight:400;margin-top:2px;color:#718797}
+#expandedCalendar .expanded-own th,#expandedCalendar .expanded-own td{font-weight:700;border-top:3px solid #becbd4;height:44px}
+#expandedCalendar .shade-white th,#expandedCalendar .shade-white td{background:white}
+#expandedCalendar .shade-gray th,#expandedCalendar .shade-gray td{background:#edf0f3}
+#expandedCalendar .expanded-comp th{padding-left:22px;font-weight:400}
+#expandedCalendar .expanded-comp a{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#587b91;text-decoration:none}
+#expandedCalendar .expanded-comp td{color:#6b8393}
+#expandedCalendar .unavailable{color:#a2adb6!important}
+#expandedCalendar .expanded-suggested th,#expandedCalendar .expanded-suggested td{background:#eaf6f0;font-weight:650;height:44px}
+#expandedCalendar .rate-up,#expandedCalendar .rate-up small{color:#208253}
+#expandedCalendar .rate-down,#expandedCalendar .rate-down small{color:#bd443b}
+@media(max-width:700px){#expandedCalendar th:first-child{width:170px;min-width:170px;max-width:170px}#expandedDialog .dialog-head{padding:12px}#expandedDialog .dialog-head h2{font-size:17px}}
