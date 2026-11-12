@@ -45,7 +45,7 @@ Provider documentation: [Guesty Open API](https://open-api-docs.guesty.com/) and
 
 Use Node, branch main, build command `npm install`, start command `npm start`.
 For Render Free, set `GITHUB_DATA_REPO=oceanvacationsmb/ocean-pricing-data` and `GITHUB_DATA_TOKEN` to a fine-grained credential with Contents read/write limited to that private repository. Keep a README on its main branch. Do not set DATA_DIR for this option.
-Set `ADMIN_PASSWORD` (at least 12 characters).
+Set `ADMIN_PASSWORD` (at least 8 characters).
 Render supplies `RENDER_EXTERNAL_URL` and `PORT`. If using a custom domain, set `APP_ORIGIN` to its HTTPS origin.
 Use `/healthz` as the health check path. The browser login username is `admin`.
 Optional secret environment variables: `GUESTY_CLIENT_ID`, `GUESTY_CLIENT_SECRET`, `AIRROI_API_KEY`.
