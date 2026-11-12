@@ -32,6 +32,16 @@
     for(const date of dates){const day=own.get(date),known=maps.map(map=>map.get(date)).filter(d=>typeof d?.available==='boolean');if(typeof day?.available!=='boolean'||!known.length)continue;matched++;if(day.available===false)ownUnavailable++;compFraction+=known.filter(d=>d.available===false).length/known.length;}
     return {matched,requested:dates.length,ownPercent:matched?100*ownUnavailable/matched:null,compPercent:matched?100*compFraction/matched:null};
   }
+  function windowComparisons(dates,ownDays,comps,ownFee){
+    const own=new Map(ownDays.map(d=>[d.date,d])),maps=comps.map(c=>new Map((c.snapshot?.days||[]).map(d=>[d.date,d]))),yours=[],averages=[],differing=[];
+    const average=values=>values.length?values.reduce((a,b)=>a+b,0)/values.length:null;
+    for(const date of dates){const day=own.get(date),known=maps.map(map=>map.get(date)).filter(d=>d?.available===true&&Number.isFinite(d.minNights)&&d.minNights>0);if(day?.available!==true||!Number.isFinite(day.minNights)||day.minNights<=0||!known.length)continue;const comp=average(known.map(d=>d.minNights));yours.push(day.minNights);averages.push(comp);if(Math.abs(day.minNights-comp)>=1)differing.push(date);}
+    const current=average(yours),comp=average(averages),gap=current===null?null:current-comp;
+    const status=gap===null?'MISSING':Math.abs(gap)<0.5?'AVG':gap>0?'HIGH':'LOW';
+    const fees=comps.filter((c,i)=>dates.some(date=>typeof maps[i].get(date)?.available==='boolean')).map(c=>c.snapshot?.cleaningFee).filter(v=>Number.isFinite(v)&&v>=0),compFee=average(fees),validOwn=Number.isFinite(ownFee)&&ownFee>=0,feeGap=validOwn&&compFee!==null?ownFee-compFee:null;
+    const cleaningStatus=feeGap===null?'MISSING':Math.abs(feeGap)<=Math.max(1,compFee*0.1)?'AVG':feeGap>0?'HIGH':'LOW';
+    return {minStay:{current,comp,status,matched:yours.length,differing},cleaning:{current:validOwn?ownFee:null,comp:compFee,status:cleaningStatus,count:fees.length,gap:feeGap}};
+  }
   function scanProgress(job,ids,due){const requested=new Set(due),completed=new Set(due.slice(0,job.processed)),errors=new Set((job.errors||[]).map(e=>e.listingId));const unique=[...new Set(ids)],done=unique.filter(id=>!requested.has(id)||completed.has(id)).length;return {total:unique.length,done,percent:unique.length?Math.round(done/unique.length*100):100,errors:unique.filter(id=>errors.has(id)).length};}
-  const api={median,propose,adjustment,advice,calendarWindow,attentionPeriods,availabilityComparison,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
+  const api={median,propose,adjustment,advice,calendarWindow,attentionPeriods,availabilityComparison,windowComparisons,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
 })(typeof window!=='undefined'?window:globalThis);

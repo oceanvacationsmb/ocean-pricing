@@ -39,3 +39,17 @@ test('calendar renders a small date window while preserving the full year scroll
  for(const left of [0,56*140,56*350,56*365]){const r=calendarWindow(left,1200);assert.ok(r.end-r.start<=40);assert.ok(r.start<=Math.floor(left/56));assert.ok(r.end>Math.floor(left/56));assert.equal(r.before+(r.end-r.start)*56+r.after,366*56);}
  assert.equal(calendarWindow(0,900).before,0);assert.equal(calendarWindow(56*365,900).after,0);
 });
+
+test('window minimum stays change with the visible dates and exclude closed or unknown days',()=>{
+ const {windowComparisons}=require('../public/engine.js'),dates=['2027-06-01','2027-06-02','2027-06-03'];
+ const own=[{date:dates[0],available:true,minNights:7},{date:dates[1],available:true,minNights:1},{date:dates[2],available:false,minNights:20}];
+ const comps=[{snapshot:{cleaningFee:150,days:dates.map(date=>({date,available:true,minNights:2}))}}];
+ let result=windowComparisons([dates[0]],own,comps,150);assert.equal(result.minStay.status,'HIGH');assert.equal(result.minStay.current,7);assert.equal(result.minStay.comp,2);
+ result=windowComparisons([dates[1]],own,comps,150);assert.equal(result.minStay.status,'LOW');assert.equal(result.minStay.current,1);assert.equal(result.minStay.matched,1);
+ assert.equal(windowComparisons([dates[2]],own,comps,150).minStay.status,'MISSING');
+});
+test('cleaning fees compare against arithmetic average with ten percent tolerance and retain zero values',()=>{
+ const {windowComparisons}=require('../public/engine.js'),dates=['2027-06-01'],comps=[100,200].map(cleaningFee=>({snapshot:{cleaningFee,days:[{date:dates[0],available:true,minNights:2}]}}));
+ assert.equal(windowComparisons(dates,[],comps,300).cleaning.status,'HIGH');assert.equal(windowComparisons(dates,[],comps,100).cleaning.status,'LOW');assert.equal(windowComparisons(dates,[],comps,165).cleaning.status,'AVG');assert.equal(windowComparisons(dates,[],comps,150).cleaning.comp,150);
+ assert.equal(windowComparisons(dates,[],comps,null).cleaning.status,'MISSING');assert.equal(windowComparisons(dates,[],comps,0).cleaning.status,'LOW');assert.equal(windowComparisons(['2027-07-01'],[],comps,150).cleaning.status,'MISSING');
+});
