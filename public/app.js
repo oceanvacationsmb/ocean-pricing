@@ -124,7 +124,7 @@ function drawSettings(){
  document.querySelectorAll('[data-settings-comps]').forEach(e=>e.onclick=()=>{demo=false;selected=e.dataset.settingsComps;showComps();$('compDialog').showModal();});
 }
 
-settingsButton.onclick=()=>{settingsOrder=orderedProperties().map(p=>p.id);settingsDraft=new Set(state.includedPropertyIds??state.properties.map(p=>p.id));$('settingsMessage').textContent='';$('settingsSearch').value='';drawSettings();$('settingsDialog').showModal();};
+settingsButton.onclick=()=>{clearRenderKeyFields();$('renderKeysMessage').textContent='';$('renderKeySetup').textContent=state.renderKeyUpdates?'Render key updates are connected.':'One-time setup needed: add RENDER_API_KEY in this service’s Render Environment, then deploy.';$('saveRenderKeys').disabled=!state.renderKeyUpdates;settingsOrder=orderedProperties().map(p=>p.id);settingsDraft=new Set(state.includedPropertyIds??state.properties.map(p=>p.id));$('settingsMessage').textContent='';$('settingsSearch').value='';drawSettings();$('settingsDialog').showModal();};
 $('settingsSearch').oninput=drawSettings;
 $('selectAllProperties').onclick=()=>{settingsDraft=new Set(state.properties.map(p=>p.id));drawSettings();};
 $('clearProperties').onclick=()=>{settingsDraft.clear();drawSettings();};
@@ -206,3 +206,13 @@ $('expandedToday').onclick=()=>{$('expandedDate').value=today();$('expandedDate'
 document.querySelector('.expanded-scroll').addEventListener('scroll',()=>{clearTimeout(insightScrollTimer);insightScrollTimer=setTimeout(updateVisibleInsights,100);},{passive:true});
 $('expandedDialog').addEventListener('close',()=>{clearTimeout(insightScrollTimer);popupPropertyId=null;});
 if(typeof window!=='undefined')window.addEventListener('resize',()=>{clearTimeout(insightScrollTimer);insightScrollTimer=setTimeout(updateVisibleInsights,100);});
+
+function clearRenderKeyFields(){for(const id of ['renderGuestyId','renderGuestySecret','renderAirroiKey'])$(id).value='';}
+$('renderKeysForm').onsubmit=async event=>{
+ event.preventDefault();const button=$('saveRenderKeys');button.disabled=true;
+ const values={guestyClientId:$('renderGuestyId').value,guestyClientSecret:$('renderGuestySecret').value,airroiKey:$('renderAirroiKey').value};
+ clearRenderKeyFields();
+ try{dialogMessage('renderKeysMessage','Saving to Render…');const result=await post('/render-keys',values);dialogMessage('renderKeysMessage','Saved '+result.saved.length+' value(s) in Render. Deployment started. Wait until Render shows Live, then refresh this page. Blank fields were kept.');}
+ catch(error){dialogMessage('renderKeysMessage',error.message,true);}finally{for(const key of Object.keys(values))values[key]='';button.disabled=!state.renderKeyUpdates;}
+};
+$('settingsDialog').addEventListener('close',clearRenderKeyFields);

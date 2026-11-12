@@ -1,9 +1,9 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Providers,fail}=require('./providers.cjs');const {Store,Scans,parseListing}=require('./core.cjs');
-function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null}={}){
+function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null,renderKeys=null}={}){
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
- const bootstrap=()=>({properties:store.data.properties,includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
+ const bootstrap=()=>({properties:store.data.properties,includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
  const server=http.createServer(async(req,res)=>{
   const host=req.headers.host||'';
   if(hosting&&req.method==='GET'&&req.url==='/healthz')return send(res,200,{ok:true});
@@ -17,7 +17,13 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
     if(req.headers['x-ocean-request']!=='1'||!String(req.headers.cookie||'').split(';').some(x=>x.trim()==='oceanPricing='+session))throw fail(403,'Reload the app to reconnect your local session.');
     let body={};if(req.method==='POST'){let buffer='';for await(const chunk of req){buffer+=chunk;if(buffer.length>100000)throw fail(413,'Request is too large.');}try{body=JSON.parse(buffer||'{}');}catch{throw fail(400,'Invalid request.');}}
     const key=req.method+' '+route;
+    if(req.method==='POST'&&key!=='POST /api/render-keys'&&(renderKeys?.busy||renderKeys?.deploying))throw fail(409,'Render is updating API keys. Wait for the deployment to finish, then reload before making more changes.');
     if(key==='GET /api/state')return send(res,200,bootstrap());
+    if(key==='POST /api/render-keys'){
+     if(!hosting||!renderKeys)throw fail(400,'One-time setup needed: add RENDER_API_KEY to this service in Render, then deploy. Do not enter that key here.');
+     if(scans.activeJob||calendarFlights.size)throw fail(409,'Wait for scans and rate refreshes to finish before updating keys.');
+     await store.flush();const result=await renderKeys.update(body);return send(res,200,result);
+    }
     if(key==='POST /api/settings'){
      if(scans.activeJob)throw fail(409,'Wait for the current scan to finish before changing included properties.');
      if(!Array.isArray(body.propertyIds)||body.propertyIds.some(id=>!store.data.properties.some(p=>p.id===id)))throw fail(400,'Choose existing properties.');
@@ -99,7 +105,8 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
 async function start(){
  const env=process.env,port=Number(env.PORT||8772),hosting=require('./hosting.cjs').hostingConfig(env),providers=new Providers(),credentials={};
  if(env.GUESTY_CLIENT_ID)credentials.guestyClientId=env.GUESTY_CLIENT_ID;if(env.GUESTY_CLIENT_SECRET)credentials.guestyClientSecret=env.GUESTY_CLIENT_SECRET;if(env.AIRROI_API_KEY)credentials.airroiKey=env.AIRROI_API_KEY;providers.configure(credentials);
- const app=createApp({hosting,providers,directory:env.DATA_DIR||path.join(__dirname,'.local')});
+ const renderKeys=hosting&&env.RENDER_API_KEY?new (require('./render-keys.cjs').RenderKeys)({token:env.RENDER_API_KEY,serviceId:env.RENDER_SERVICE_ID}):null;
+ const app=createApp({hosting,providers,renderKeys,directory:env.DATA_DIR||path.join(__dirname,'.local')});
  if(env.GITHUB_DATA_TOKEN){const remote=new (require('./github-store.cjs').GitHubStore)({repo:env.GITHUB_DATA_REPO,token:env.GITHUB_DATA_TOKEN,branch:env.GITHUB_DATA_BRANCH||'main'});const saved=await remote.load();if(saved){app.store.data=saved;app.store.save();}else if(app.store.data.properties.length){throw Error('GitHub data.json is missing. Upload your existing backup privately before starting.');}app.store.remote=remote;}
  app.server.listen(port,hosting?'0.0.0.0':'127.0.0.1',()=>console.log('Ocean Pricing is ready on port '+port));
 }
