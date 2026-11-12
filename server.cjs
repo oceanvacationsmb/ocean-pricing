@@ -31,12 +31,12 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
      if(body.propertyOrder!==undefined&&(!Array.isArray(body.propertyOrder)||new Set(body.propertyOrder).size!==body.propertyOrder.length||body.propertyOrder.some(id=>!store.data.properties.some(p=>p.id===id))))throw fail(400,'Invalid property order.');
      store.data.includedPropertyIds=[...new Set(body.propertyIds)];if(body.propertyOrder)store.data.propertyOrder=body.propertyOrder;store.save();scans.plans.clear();return send(res,200,bootstrap());
     }
-    if(key==='POST /api/connections'){
+    if(key==='POST /api/connections'){if(hosting)throw fail(400,'Use Settings → API keys to update credentials in Render.');
      if(scans.activeJob)throw fail(409,'Wait for the current scan to finish before changing connections.');
      const values={};for(const name of ['guestyClientId','guestyClientSecret','airroiKey'])if(typeof body[name]==='string'&&body[name].trim())values[name]=body[name].trim();
      providers.configure(values);return send(res,200,{connections:providers.status()});
     }
-    if(key==='POST /api/disconnect'){if(scans.activeJob)throw fail(409,'Wait for the current scan to finish.');providers.disconnect();return send(res,200,{connections:providers.status()});}
+    if(key==='POST /api/disconnect'){if(hosting)throw fail(400,'Manage API keys in Settings.');if(scans.activeJob)throw fail(409,'Wait for the current scan to finish.');providers.disconnect();return send(res,200,{connections:providers.status()});}
     if(key==='POST /api/guesty/sync'){
      const properties=await providers.listings();if(!properties.length)throw fail(502,'Guesty returned no properties. Existing saved properties were kept.');
      const added204=properties.filter(p=>!store.data.properties.some(old=>old.id===p.id)&&p.bedrooms===2&&/(?:^|[^0-9])204[\s-]*2d(?:$|[^a-z0-9])/i.test(p.name));
@@ -85,7 +85,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
       try{if(!calendarFlights.has(ownKey))calendarFlights.set(ownKey,providers.calendar(id,month).then(days=>{const value={days,fetchedAt:new Date().toISOString()};store.data.ownCalendars[ownKey]=value;store.save();return value;}).finally(()=>calendarFlights.delete(ownKey)));own=await calendarFlights.get(ownKey);}catch(error){warning=error.message;}
      }
      if(url.searchParams.get('refresh')==='1'&&providers.status().guesty&&providers.propertyDetails&&!warning){try{const details=await providers.propertyDetails(id);property.cleaningFee=details.cleaningFee;if(details.currency)property.currency=details.currency;store.save();}catch{warning+=(warning?' ':'')+'Guesty cleaning fee could not be read.';}}
-     if(!own&&!warning)warning='No saved Guesty rates for these dates. Click Refresh Guesty rates to load them.';if(url.searchParams.get('refresh')==='1'&&!providers.status().guesty)warning='Guesty is disconnected. Open Connections before refreshing Guesty rates.';
+     if(!own&&!warning)warning='No saved Guesty rates for these dates. Click Refresh Guesty rates to load them.';if(url.searchParams.get('refresh')==='1'&&!providers.status().guesty)warning='Guesty is disconnected. Open Settings → API keys before refreshing Guesty rates.';
      const comps=store.assignment(id).map(compId=>{const saved=store.latest(compId,'rates');return {...store.data.comps[compId],snapshot:saved?{...saved,days:saved.days.filter(d=>d.date.startsWith(month))}:null};});
      return send(res,200,{property,masterPropertyId:store.master(id),own:own||null,comps,warning,rateLimited:warning.includes('Guesty rate limit'),readOnly:true});
     }

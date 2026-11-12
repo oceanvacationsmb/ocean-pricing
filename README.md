@@ -8,7 +8,7 @@ Install Node.js 20 or newer, then double-click **Start.cmd**. There are no packa
 
 ## Use
 
-- Enter Guesty Open API credentials and an AirROI key in **Connections**. Keys remain in process memory and must be re-entered after restarting the service.
+- Update hosted Guesty and AirROI credentials in **Settings → API keys**. They are saved in Render environment variables. The old temporary Connections form is removed.
 - **Import Guesty** reads active listing metadata. The import allows studios and 1, 3, 4, 5, or 6 bedrooms, with a specific two-bedroom exception for 204-2D.
 - In **Settings**, select properties, drag them into your preferred order, and assign up to five comps per property. Property gear icons open the relevant comp settings.
 - Link similar properties to a master to reuse its assignments and saved results. Followers have no separate comp scan controls. Linking preserves previous independent assignments; unlinking restores them.
@@ -49,7 +49,7 @@ Set `ADMIN_PASSWORD` (at least 8 characters).
 Render supplies `RENDER_EXTERNAL_URL` and `PORT`. If using a custom domain, set `APP_ORIGIN` to its HTTPS origin.
 Use `/healthz` as the health check path. The browser login username is `admin`.
 Optional secret environment variables: `GUESTY_CLIENT_ID`, `GUESTY_CLIENT_SECRET`, `AIRROI_API_KEY`.
-Keys entered only in Connections still live in memory; environment variables survive restarts.
+Credentials configured as environment variables survive restarts.
 The hosted app requires authentication for both pages and API, enforces the configured host/origin, and uses a Secure session cookie.
 Existing computer data is not uploaded with source code: privately upload `.local/data.json` as `data.json` at the root of the private data repository before using the hosted app. Never upload it to the public code repository. No API keys belong in this file.
 GitHub storage loads before serving requests. Saves are serialized and successful API responses wait for GitHub confirmation. Paid calls wait for their attempt ledger to be saved first. A changed file SHA causes a storage error instead of overwriting another writer. Failed GitHub saves are reported; keep the running app open and resolve storage errors before restarting. No automatic paid retries are made.
