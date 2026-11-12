@@ -487,3 +487,23 @@
 
 .logout-btn{color:#fff;border:1px solid #8aa6b3;background:transparent;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer}.logout-btn:hover{background:#ffffff1a}.app-header form{margin:0}
 .login-page{display:grid;place-items:center;min-height:100vh;padding:20px;background:#edf3f7}.login-card{width:min(100%,370px);padding:30px;background:white;border:1px solid #d5e0e7;border-radius:14px;box-shadow:0 12px 35px #153f5015}.login-card .brand{color:#285368;margin-bottom:20px}.login-card h1{font-size:24px}.login-card p{color:#718594;font-size:13px}.login-card label{display:block;margin:16px 0 7px;font-size:13px}.login-card input{width:100%}.login-card button{width:100%;margin-top:22px}.login-card .login-error{color:#b6443f}
+
+/* Fit the property calendar and concise summary together. */
+#expandedDialog{height:94vh;max-height:94vh}
+#expandedDialog .dialog-head{padding:10px 16px;min-height:43px}#expandedDialog .dialog-head h2{font-size:19px}
+#expandedDialog .expanded-nav{padding:5px 16px;min-height:38px}
+#expandedDialog .expanded-scroll{flex:1 1 auto;min-height:120px;max-height:none}
+#expandedCalendar th,#expandedCalendar td{height:29px;padding:3px 2px;font-size:11px}
+#expandedCalendar thead th{height:33px}#expandedCalendar .expanded-own th,#expandedCalendar .expanded-own td{height:35px}
+#expandedCalendar .expanded-suggested th,#expandedCalendar .expanded-suggested td{height:39px}
+#expandedCalendar th:first-child{padding-top:4px;padding-bottom:4px}
+#expandedCalendar small{font-size:9px;margin-top:1px;line-height:11px}
+#propertyInsights{flex:0 0 auto;min-height:0;overflow:visible;padding:9px 14px 11px}
+.window-summary-heading{margin-bottom:7px}.window-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:10px}
+.window-metric{padding:8px 11px;min-width:0}.window-metric>strong{font-size:13px;margin:5px 0 0;line-height:18px}
+#propertyInsights h3{font-size:12px;margin:0}.window-metric>div>b{font-size:10px}
+.availability-compact{border-left-color:#9db5c4;background:#fff}
+.insight-heading{margin:0 0 6px}.attention-cards{gap:9px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.attention-card{padding:8px 11px;gap:3px;font-size:11px;min-width:0}.attention-card strong{font-size:14px;line-height:18px}.attention-date{font-size:11px;line-height:15px}.insight-empty{margin:3px 0;font-size:12px}
+@media(max-width:700px){#expandedDialog .dialog-head h2{font-size:16px}.window-metrics{gap:5px}.window-metric{padding:6px}.window-metric>div{align-items:start;flex-direction:column;gap:3px}.window-metric>strong{font-size:11px;line-height:16px}.attention-card{padding:6px}.attention-card strong{font-size:12px}.attention-date{font-size:10px}#propertyInsights{padding:8px}.attention-cards{gap:5px}}
+@media(max-height:620px){#expandedDialog .dialog-head{padding:6px 14px;min-height:34px}#expandedDialog .expanded-nav{min-height:32px;padding:3px 14px}.window-metric{padding:5px 8px}.attention-card{padding:5px 8px}#propertyInsights{padding:6px 10px}.window-metrics{margin-bottom:6px}.window-summary-heading{margin-bottom:5px}}
