@@ -33,3 +33,9 @@ test('availability compares matched dates only and distinguishes unknown dates f
  const comps=[{snapshot:{days:[{date:dates[0],available:false},{date:dates[1],available:null},{date:dates[2],available:false}]}},{snapshot:{days:[{date:dates[0],available:true},{date:dates[1],available:false}]}}];
  const result=availabilityComparison(dates,own,comps);assert.equal(result.matched,2);assert.equal(result.ownPercent,50);assert.equal(result.compPercent,75);assert.equal(availabilityComparison(dates,own,[]).compPercent,null);
 });
+
+test('calendar renders a small date window while preserving the full year scroll width',()=>{
+ const {calendarWindow}=require('../public/engine.js');
+ for(const left of [0,56*140,56*350,56*365]){const r=calendarWindow(left,1200);assert.ok(r.end-r.start<=40);assert.ok(r.start<=Math.floor(left/56));assert.ok(r.end>Math.floor(left/56));assert.equal(r.before+(r.end-r.start)*56+r.after,366*56);}
+ assert.equal(calendarWindow(0,900).before,0);assert.equal(calendarWindow(56*365,900).after,0);
+});
