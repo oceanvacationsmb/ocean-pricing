@@ -226,6 +226,7 @@ if(typeof window!=='undefined')window.addEventListener('pageshow',event=>{if(eve
 function openApiSettings(){settingsButton.click();document.querySelector('.render-key-settings').open=true;}
 
 function renderChannels(p){$('channelLinks').innerHTML=['airbnb','vrbo'].filter(k=>p?.channelLinks?.[k]).map(k=>'<a target="_blank" rel="noopener noreferrer" href="'+esc(p.channelLinks[k])+'">'+(k==='airbnb'?'Airbnb':'Vrbo')+' ↗</a>').join(' · ');}
+$('previousProperty').onclick=()=>task($('previousProperty'),async()=>{const list=properties(),index=list.findIndex(p=>p.id===popupPropertyId),box=document.querySelector('.expanded-scroll'),left=box.scrollLeft;await openCalendarWindow(list[(index-1+list.length)%list.length].id);box.scrollLeft=left;updateVisibleInsights();});
 $('nextProperty').onclick=()=>task($('nextProperty'),async()=>{const list=properties(),index=list.findIndex(p=>p.id===popupPropertyId),box=document.querySelector('.expanded-scroll'),left=box.scrollLeft;await openCalendarWindow(list[(index+1)%list.length].id);box.scrollLeft=left;updateVisibleInsights();});
 $('saveOwnAirbnb').onclick=()=>task($('saveOwnAirbnb'),async()=>{state=await post('/property-link',{propertyId:selected,url:$('ownAirbnbUrl').value});await loadSavedOwn();dialogMessage('compMessage','Your Airbnb link is saved.');});
 
