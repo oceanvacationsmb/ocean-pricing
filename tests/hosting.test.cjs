@@ -16,6 +16,7 @@ test('hosted app protects assets and API, permits health checks and retains save
  const request=(url,headers={},data)=>new Promise((resolve,reject)=>{const req=http.request({hostname:'127.0.0.1',port:app.server.address().port,path:url,method:data===undefined?'GET':'POST',headers:{Host:hosting.host,...headers}},res=>{let body='';res.on('data',x=>body+=x);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body}));});req.on('error',reject);req.end(data);});
  try{
   assert.equal((await request('/healthz')).status,200);assert.equal((await request('/')).status,303);assert.equal((await request('/api/backup')).status,401);
+  assert.equal((await request('/login')).headers['referrer-policy'],'same-origin');
   assert.equal((await request('/login',{Origin:'https://evil.example'},'username=admin&password=wrong')).status,403);
   assert.equal((await request('/login',{Origin:hosting.origin},'username=admin&password=wrong')).status,401);
   const login=await request('/login',{Origin:hosting.origin,'Content-Type':'application/x-www-form-urlencoded'},new URLSearchParams({username:'admin',password:hosting.password}).toString());assert.equal(login.status,303);const cookie=login.headers['set-cookie'][0].split(';')[0];assert.match(login.headers['set-cookie'][0],/Secure/);

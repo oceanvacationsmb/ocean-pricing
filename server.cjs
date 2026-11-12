@@ -10,7 +10,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
   if(hosting&&req.method==='GET'&&req.url==='/healthz')return send(res,200,{ok:true});
   if(hosting?host!==hosting.host:!/^127\.0\.0\.1:\d+$/.test(host)){send(res,403,{error:'Open the app using its configured address.'});return;}
   const url=new URL(req.url,'http://'+host),route=url.pathname;
-  res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
+  res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','same-origin');
   try{
    if(auth&&await auth.handle(req,res,route))return;
    if(route.startsWith('/api/')){
