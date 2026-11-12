@@ -3,7 +3,8 @@ const {fail}=require('./providers.cjs');
 function parseListing(value){const input=String(value||'').trim();if(/^\d{6,22}$/.test(input))return input;try{const url=new URL(input);if(url.protocol!=='https:'||!/(^|\.)airbnb\.[a-z.]+$/i.test(url.hostname))throw Error();const match=url.pathname.match(/^\/rooms\/(\d{6,22})(?:\/|$)/);if(match)return match[1];if(url.pathname.startsWith('/h/'))throw fail(400,'Open that short Airbnb link and copy the full /rooms/ listing URL from the address bar.');}catch(error){if(error.status)throw error;}throw fail(400,'Use a full Airbnb /rooms/ listing URL or its numeric listing ID.');}
 class Store{
  constructor(directory){this.directory=directory;this.file=path.join(directory,'data.json');fs.mkdirSync(directory,{recursive:true});this.data=fs.existsSync(this.file)?JSON.parse(fs.readFileSync(this.file,'utf8')):{version:1,properties:[],comps:{},assignments:{},snapshots:{},ownCalendars:{},usage:[]};}
- save(){const temp=this.file+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.data));fs.renameSync(temp,this.file);}
+ save(){const temp=this.file+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.data));fs.renameSync(temp,this.file);if(this.remote)this.remote.save(this.backup());}
+ flush(){return this.remote?this.remote.flush():Promise.resolve();}
  backup(){return {version:1,includedPropertyIds:this.data.includedPropertyIds??null,propertyOrder:this.data.propertyOrder||[],properties:this.data.properties,compMasters:this.data.compMasters||{},comps:this.data.comps,assignments:this.data.assignments,snapshots:this.data.snapshots,ownCalendars:this.data.ownCalendars,usage:this.data.usage};}
  latest(id,type){const types=type==='rates'?['rates','calendar']:['calendar'];return types.map(t=>this.data.snapshots[id+':'+t]).filter(Boolean).sort((a,b)=>b.fetchedAt.localeCompare(a.fetchedAt))[0]||null;}
  master(propertyId){const seen=new Set();let id=propertyId;while(this.data.compMasters?.[id]){if(seen.has(id))throw fail(400,'Comp sharing cannot contain a cycle.');seen.add(id);id=this.data.compMasters[id];}return id;}
@@ -29,11 +30,11 @@ class Scans{
  async execute(job,plan){try{for(const id of plan.due){
    const newer=this.store.latest(id,plan.type);if(newer&&Date.parse(newer.fetchedAt)>Date.parse(plan.createdAt)){job.processed++;continue;}
    job.attempted++;job.estimatedSpend=Number((job.attempted*plan.costPerCall).toFixed(2));
-   const ledger={listingId:id,type:plan.type,time:new Date().toISOString(),estimatedCost:plan.costPerCall,status:'attempted'};this.store.data.usage.push(ledger);this.store.save();
+   const ledger={listingId:id,type:plan.type,time:new Date().toISOString(),estimatedCost:plan.costPerCall,status:'attempted'};this.store.data.usage.push(ledger);this.store.save();await this.store.flush();
    try{const result=await this.providers.competitor(id,plan.type);this.store.data.snapshots[id+':'+plan.type]={...result,listingId:id,type:plan.type,fetchedAt:new Date().toISOString()};ledger.status='success';job.succeeded++;}
    catch(error){ledger.status='failed';job.errors.push({listingId:id,message:error.message});}
-   job.processed++;this.store.save();
-  }job.status=job.errors.length?'partial':'complete';}catch{job.status='failed';job.errors.push({message:'Local saving failed. Stop scanning and check available disk space.'});}finally{job.finishedAt=new Date().toISOString();}}
+   job.processed++;this.store.save();await this.store.flush();
+  }job.status=job.errors.length?'partial':'complete';}catch{job.status='failed';job.errors.push({message:'Saving failed. Stop scanning and check storage before continuing. The latest result is kept in the running app.'});}finally{job.finishedAt=new Date().toISOString();}}
 }
 module.exports={Store,Scans,parseListing};
 

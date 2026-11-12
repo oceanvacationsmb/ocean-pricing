@@ -2,7 +2,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const {Providers,fail}=require('./providers.cjs');const {Store,Scans,parseListing}=require('./core.cjs');
 function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null}={}){
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
- const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
+ const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties,includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
  const server=http.createServer(async(req,res)=>{
   const host=req.headers.host||'';
@@ -96,6 +96,13 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
  });
  return {server,store,scans,providers};
 }
-if(require.main===module){const port=Number(process.env.PORT||8772),hosting=require('./hosting.cjs').hostingConfig(process.env);const providers=new Providers();const credentials={};if(process.env.GUESTY_CLIENT_ID)credentials.guestyClientId=process.env.GUESTY_CLIENT_ID;if(process.env.GUESTY_CLIENT_SECRET)credentials.guestyClientSecret=process.env.GUESTY_CLIENT_SECRET;if(process.env.AIRROI_API_KEY)credentials.airroiKey=process.env.AIRROI_API_KEY;providers.configure(credentials);const app=createApp({hosting,providers,directory:process.env.DATA_DIR||path.join(__dirname,'.local')});app.server.listen(port,hosting?'0.0.0.0':'127.0.0.1',()=>console.log('Ocean Pricing is ready on port '+port));}
+async function start(){
+ const env=process.env,port=Number(env.PORT||8772),hosting=require('./hosting.cjs').hostingConfig(env),providers=new Providers(),credentials={};
+ if(env.GUESTY_CLIENT_ID)credentials.guestyClientId=env.GUESTY_CLIENT_ID;if(env.GUESTY_CLIENT_SECRET)credentials.guestyClientSecret=env.GUESTY_CLIENT_SECRET;if(env.AIRROI_API_KEY)credentials.airroiKey=env.AIRROI_API_KEY;providers.configure(credentials);
+ const app=createApp({hosting,providers,directory:env.DATA_DIR||path.join(__dirname,'.local')});
+ if(env.GITHUB_DATA_TOKEN){const remote=new (require('./github-store.cjs').GitHubStore)({repo:env.GITHUB_DATA_REPO,token:env.GITHUB_DATA_TOKEN,branch:env.GITHUB_DATA_BRANCH||'main'});const saved=await remote.load();if(saved){app.store.data=saved;app.store.save();}else if(app.store.data.properties.length){throw Error('GitHub data.json is missing. Upload your existing backup privately before starting.');}app.store.remote=remote;}
+ app.server.listen(port,hosting?'0.0.0.0':'127.0.0.1',()=>console.log('Ocean Pricing is ready on port '+port));
+}
+if(require.main===module)start().catch(error=>{console.error(error.message);process.exitCode=1;});
 module.exports={createApp};
 

@@ -44,12 +44,13 @@ Provider documentation: [Guesty Open API](https://open-api-docs.guesty.com/) and
 ## Render deployment
 
 Use Node, branch main, build command `npm install`, start command `npm start`.
-Attach a persistent disk to a paid service, mounted at `/var/data`.
-Set `DATA_DIR=/var/data/ocean-pricing` and `ADMIN_PASSWORD` (at least 12 characters).
+For Render Free, set `GITHUB_DATA_REPO=oceanvacationsmb/ocean-pricing-data` and `GITHUB_DATA_TOKEN` to a fine-grained credential with Contents read/write limited to that private repository. Keep a README on its main branch. Do not set DATA_DIR for this option.
+Set `ADMIN_PASSWORD` (at least 12 characters).
 Render supplies `RENDER_EXTERNAL_URL` and `PORT`. If using a custom domain, set `APP_ORIGIN` to its HTTPS origin.
 Use `/healthz` as the health check path. The browser login username is `admin`.
 Optional secret environment variables: `GUESTY_CLIENT_ID`, `GUESTY_CLIENT_SECRET`, `AIRROI_API_KEY`.
 Keys entered only in Connections still live in memory; environment variables survive restarts.
 The hosted app requires authentication for both pages and API, enforces the configured host/origin, and uses a Secure session cookie.
-Existing computer data is not uploaded with source code: migrate `.local/data.json` privately to the disk before using the hosted app with existing settings. Never commit this file to GitHub.
-Run only one instance with this file-based store. Do not deploy with ephemeral storage for real saved data.
+Existing computer data is not uploaded with source code: privately upload `.local/data.json` as `data.json` at the root of the private data repository before using the hosted app. Never upload it to the public code repository. No API keys belong in this file.
+GitHub storage loads before serving requests. Saves are serialized and successful API responses wait for GitHub confirmation. Paid calls wait for their attempt ledger to be saved first. A changed file SHA causes a storage error instead of overwriting another writer. Failed GitHub saves are reported; keep the running app open and resolve storage errors before restarting. No automatic paid retries are made.
+Run one service instance and one writer. GitHub storage creates commits for settings and scan updates; it is intended for this small manually refreshed dashboard. Render Free can sleep and interrupt background scans; saved completed results are restored at startup. A persistent disk with DATA_DIR remains an alternative for a paid service.

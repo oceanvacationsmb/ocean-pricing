@@ -3,6 +3,7 @@ const {hostingConfig,authorized}=require('../hosting.cjs'),{createApp}=require('
 test('Render requires HTTPS, password and persistent data directory',()=>{
  const env={RENDER:'true',RENDER_EXTERNAL_URL:'https://pricing.onrender.com',ADMIN_PASSWORD:'test-only-password',DATA_DIR:'/var/data/ocean-pricing'};
  assert.equal(hostingConfig(env).host,'pricing.onrender.com');assert.equal(hostingConfig({}),null);
+ assert.equal(hostingConfig({...env,DATA_DIR:undefined,GITHUB_DATA_TOKEN:'test-only',GITHUB_DATA_REPO:'test/data'}).host,'pricing.onrender.com');
  for(const override of [{ADMIN_PASSWORD:''},{DATA_DIR:''},{APP_ORIGIN:'http://pricing.onrender.com'}])assert.throws(()=>hostingConfig({...env,...override}));
  assert.equal(authorized('Basic '+Buffer.from('admin:test-only-password').toString('base64'),env.ADMIN_PASSWORD),true);
  assert.equal(authorized('Basic '+Buffer.from('admin:wrong').toString('base64'),env.ADMIN_PASSWORD),false);
