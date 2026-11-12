@@ -1,16 +1,19 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Providers,fail}=require('./providers.cjs');const {Store,Scans,parseListing}=require('./core.cjs');
-function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle}={}){
+function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null}={}){
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
  const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties,includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
  const server=http.createServer(async(req,res)=>{
-  const host=req.headers.host||'';if(!/^127\.0\.0\.1:\d+$/.test(host)){send(res,403,{error:'Open the app using its 127.0.0.1 address.'});return;}
+  const host=req.headers.host||'';
+  if(hosting&&req.method==='GET'&&req.url==='/healthz')return send(res,200,{ok:true});
+  if(hosting?host!==hosting.host:!/^127\.0\.0\.1:\d+$/.test(host)){send(res,403,{error:'Open the app using its configured address.'});return;}
+  if(hosting&&!require('./hosting.cjs').authorized(req.headers.authorization,hosting.password)){res.setHeader('WWW-Authenticate','Basic realm="Ocean Pricing", charset="UTF-8"');return send(res,401,{error:'Sign in with username admin and your admin password.'});}
   const url=new URL(req.url,'http://'+host),route=url.pathname;
   res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
   try{
    if(route.startsWith('/api/')){
-    if(req.headers.origin&&req.headers.origin!=='http://'+host)throw fail(403,'Requests from another site are blocked.');
+    if(req.headers.origin&&req.headers.origin!==(hosting?hosting.origin:'http://'+host))throw fail(403,'Requests from another site are blocked.');
     if(req.headers['x-ocean-request']!=='1'||!String(req.headers.cookie||'').split(';').some(x=>x.trim()==='oceanPricing='+session))throw fail(403,'Reload the app to reconnect your local session.');
     let body={};if(req.method==='POST'){let buffer='';for await(const chunk of req){buffer+=chunk;if(buffer.length>100000)throw fail(413,'Request is too large.');}try{body=JSON.parse(buffer||'{}');}catch{throw fail(400,'Invalid request.');}}
     const key=req.method+' '+route;
@@ -88,11 +91,11 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
    }
    if(req.method!=='GET')return send(res,405,{error:'Method not allowed.'});
    const assets={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css','/engine.js':'engine.js'};const name=assets[route];if(!name)return send(res,404,{error:'Not found.'});
-   const file=path.join(__dirname,'public',name);res.setHeader('Set-Cookie','oceanPricing='+session+'; HttpOnly; SameSite=Strict; Path=/');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));
+   const file=path.join(__dirname,'public',name);res.setHeader('Set-Cookie','oceanPricing='+session+'; HttpOnly; SameSite=Strict; Path=/'+(hosting?'; Secure':''));res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));
   }catch(error){send(res,error.status||500,{error:error.status?error.message:'The request could not be completed. Your saved data was kept.'});}
  });
  return {server,store,scans,providers};
 }
-if(require.main===module){const port=Number(process.env.PORT||8772);const app=createApp();app.server.listen(port,'127.0.0.1',()=>console.log('Ocean Pricing is ready: http://127.0.0.1:'+port));}
+if(require.main===module){const port=Number(process.env.PORT||8772),hosting=require('./hosting.cjs').hostingConfig(process.env);const providers=new Providers();const credentials={};if(process.env.GUESTY_CLIENT_ID)credentials.guestyClientId=process.env.GUESTY_CLIENT_ID;if(process.env.GUESTY_CLIENT_SECRET)credentials.guestyClientSecret=process.env.GUESTY_CLIENT_SECRET;if(process.env.AIRROI_API_KEY)credentials.airroiKey=process.env.AIRROI_API_KEY;providers.configure(credentials);const app=createApp({hosting,providers,directory:process.env.DATA_DIR||path.join(__dirname,'.local')});app.server.listen(port,hosting?'0.0.0.0':'127.0.0.1',()=>console.log('Ocean Pricing is ready on port '+port));}
 module.exports={createApp};
 

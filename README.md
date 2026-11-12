@@ -40,3 +40,16 @@ Run:
 Tests use simulated providers and temporary data. Browser QA fixtures also use simulated providers and must not be confused with a live scan. Real API availability, limits, account permissions and response coverage depend on your provider account.
 
 Provider documentation: [Guesty Open API](https://open-api-docs.guesty.com/) and [AirROI](https://www.airroi.com/api/documentation).
+
+## Render deployment
+
+Use Node, branch main, build command `npm install`, start command `npm start`.
+Attach a persistent disk to a paid service, mounted at `/var/data`.
+Set `DATA_DIR=/var/data/ocean-pricing` and `ADMIN_PASSWORD` (at least 12 characters).
+Render supplies `RENDER_EXTERNAL_URL` and `PORT`. If using a custom domain, set `APP_ORIGIN` to its HTTPS origin.
+Use `/healthz` as the health check path. The browser login username is `admin`.
+Optional secret environment variables: `GUESTY_CLIENT_ID`, `GUESTY_CLIENT_SECRET`, `AIRROI_API_KEY`.
+Keys entered only in Connections still live in memory; environment variables survive restarts.
+The hosted app requires authentication for both pages and API, enforces the configured host/origin, and uses a Secure session cookie.
+Existing computer data is not uploaded with source code: migrate `.local/data.json` privately to the disk before using the hosted app with existing settings. Never commit this file to GitHub.
+Run only one instance with this file-based store. Do not deploy with ephemeral storage for real saved data.
