@@ -1,8 +1,8 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Providers,fail}=require('./providers.cjs');const {Store,Scans,parseListing}=require('./core.cjs');
-function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null,renderKeys=null}={}){
+function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,ratingReader=require('./airbnb-title.cjs').readAirbnbProfile,hosting=null,renderKeys=null}={}){
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
- const ratingUpdate=new (require('./ratings.cjs').RatingUpdate)(store,providers,titleReader);
+ const ratingUpdate=new (require('./ratings.cjs').RatingUpdate)(store,providers,ratingReader);
  const auth=hosting?new (require('./auth.cjs').DashboardAuth)(hosting):null;
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties.map(p=>({...p,airbnbListingId:store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId||null})),includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
