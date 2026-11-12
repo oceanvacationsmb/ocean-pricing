@@ -62,3 +62,7 @@ On the hosted service, set `RENDER_API_KEY` once in Render Environment, then dep
 Settings > API keys > Save keys to Render accepts any subset of Guesty Client ID, Guesty Client Secret, and AirROI key. Blank values are unchanged. It updates only the corresponding service environment variables through Render's per-variable API, then requests a deploy. Existing saved data is flushed before the deploy request. Wait for Live and reload. A scan/rate refresh must finish before rotation; mutations are blocked during the update. No Guesty or paid AirROI call tests new credentials automatically.
 
 No submitted credential is written to app files, GitHub, localStorage, backup JSON, or responses. Input fields clear on submit or when Settings closes. Partial provider-management failures name only affected variable names and require checking Render before retrying. The management credential itself is never exposed to the browser or accepted through this form.
+
+## Dashboard sign-in and logout
+
+Hosted dashboards use a normal sign-in page with username `admin` and the existing `ADMIN_PASSWORD`. A Secure, HttpOnly, SameSite=Strict cookie identifies a server-side session for up to 12 hours. Log out ends only that browser session and returns to sign-in; it does not erase saved data, remove API credentials, or end already-authorized scans. Previously cached HTTP Basic credentials are no longer accepted as a login. Sessions are intentionally cleared on a service restart or deployment. Local loopback use still does not require a hosted login.

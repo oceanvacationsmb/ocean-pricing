@@ -484,3 +484,6 @@
 @media(max-width:800px){.window-metrics{grid-template-columns:1fr}.window-summary-heading{align-items:start;flex-direction:column}}
 
 .render-key-settings{padding:12px 14px;margin:14px 0;border:1px solid #d5e0e7;border-radius:8px;background:#f8fbfd}.render-key-settings summary{font-weight:650;cursor:pointer}.render-key-settings p{margin:12px 0!important}.render-key-settings .dialog-message{overflow-wrap:anywhere}
+
+.logout-btn{color:#fff;border:1px solid #8aa6b3;background:transparent;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer}.logout-btn:hover{background:#ffffff1a}.app-header form{margin:0}
+.login-page{display:grid;place-items:center;min-height:100vh;padding:20px;background:#edf3f7}.login-card{width:min(100%,370px);padding:30px;background:white;border:1px solid #d5e0e7;border-radius:14px;box-shadow:0 12px 35px #153f5015}.login-card .brand{color:#285368;margin-bottom:20px}.login-card h1{font-size:24px}.login-card p{color:#718594;font-size:13px}.login-card label{display:block;margin:16px 0 7px;font-size:13px}.login-card input{width:100%}.login-card button{width:100%;margin-top:22px}.login-card .login-error{color:#b6443f}
