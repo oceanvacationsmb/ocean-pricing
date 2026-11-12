@@ -7,3 +7,11 @@ test('limited comp sets produce median-based suggestions without inventing unava
 const row={current:300,comps:[{rate:200,available:null},{rate:250,available:null},{rate:300,available:null},{rate:900,available:false},{rate:null,available:true}]};
 test('rate-only data uses valid prices without assuming availability and excludes known unavailable comps',()=>{assert.equal(propose(row,options).proposed,250);assert.equal(propose(row,{...options,mode:'plus'}).proposed,275);assert.equal(propose(row,{...options,mode:'minus'}).proposed,225);});
 test('booked, locked, insufficient comps and minimum price protections',()=>{assert.equal(propose({...row,booked:true},options).proposed,null);assert.equal(propose({...row,locked:true},options).proposed,null);assert.equal(propose(row,{...options,minComps:4}).proposed,null);assert.equal(propose(row,{...options,floor:260}).proposed,260);assert.equal(median([]),null);});
+
+test('near-market suggestions stay yellow AVG through plus or minus ten percent',()=>{
+ const {advice}=require('../public/engine.js');
+ for(const [current,target]of [[100,90],[100,110],[500,450],[800,880],[1000,1000]]){const result=advice(current,target);assert.equal(result.css,'rate-average');assert.equal(result.label,'AVG');assert.ok(result.percent.endsWith('%'));}
+ assert.equal(advice(500,600).css,'rate-up');assert.equal(advice(1000,800).css,'rate-down');
+ assert.equal(advice(100,111).label,'INCREASE');assert.equal(advice(100,89).label,'DECREASE');
+ assert.equal(advice(null,500).move,null);assert.equal(advice(500,null).css,'');
+});

@@ -79,3 +79,8 @@
 #expandedCalendar .rate-up,#expandedCalendar .rate-up small{color:#208253}
 #expandedCalendar .rate-down,#expandedCalendar .rate-down small{color:#bd443b}
 @media(max-width:700px){#expandedCalendar th:first-child{width:170px;min-width:170px;max-width:170px}#expandedDialog .dialog-head{padding:12px}#expandedDialog .dialog-head h2{font-size:17px}}
+
+#calendar .proposed-row td.rate-average,#expandedCalendar .expanded-suggested td.rate-average{background:#fff5ce;color:#926b10}
+#calendar .rate-average .move-percent,#calendar .rate-average .change-action,#expandedCalendar .rate-average small{color:#926b10}
+#expandedCalendar .expanded-suggested td.rate-up{background:#e9f7ee}
+#expandedCalendar .expanded-suggested td.rate-down{background:#fff0f0}

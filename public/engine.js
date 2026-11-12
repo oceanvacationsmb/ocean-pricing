@@ -12,6 +12,7 @@
     return {...row,benchmark,count:usable.length,proposed,change:proposed-row.current,reason:proposed!==Math.round(target)?'Price limit applied':'Ready for review'};
   }
   function adjustment(current,proposed){return Number.isFinite(current)&&current>0&&Number.isFinite(proposed)?(proposed/current-1)*100:null;}
+  function advice(current,proposed){const move=adjustment(current,proposed);if(move===null)return {move:null,css:'',label:'',percent:''};const average=Math.abs(move)<=10+1e-9;return {move,css:average?'rate-average':move>0?'rate-up':'rate-down',label:average?'AVG':move>0?'INCREASE':'DECREASE',percent:(move>0?'+':move<0?'−':'')+Math.abs(move).toFixed(1)+'%'};}
   function scanProgress(job,ids,due){const requested=new Set(due),completed=new Set(due.slice(0,job.processed)),errors=new Set((job.errors||[]).map(e=>e.listingId));const unique=[...new Set(ids)],done=unique.filter(id=>!requested.has(id)||completed.has(id)).length;return {total:unique.length,done,percent:unique.length?Math.round(done/unique.length*100):100,errors:unique.filter(id=>errors.has(id)).length};}
-  const api={median,propose,adjustment,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
+  const api={median,propose,adjustment,advice,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
 })(typeof window!=='undefined'?window:globalThis);
