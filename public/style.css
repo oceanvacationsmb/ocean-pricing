@@ -84,3 +84,18 @@
 #calendar .rate-average .move-percent,#calendar .rate-average .change-action,#expandedCalendar .rate-average small{color:#926b10}
 #expandedCalendar .expanded-suggested td.rate-up{background:#e9f7ee}
 #expandedCalendar .expanded-suggested td.rate-down{background:#fff0f0}
+
+#expandedDialog .expanded-scroll{flex:0 1 auto;max-height:43vh;min-height:150px}
+#propertyInsights{flex:1;min-height:100px;overflow:auto;padding:16px 20px;background:#f8fafc;border-top:1px solid #dce5eb}
+.insight-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+#propertyInsights h3{font-size:14px;margin:0 0 3px;color:#29485c}
+.insight-heading span,.insight-footnote,.availability-summary p{font-size:11px;color:#728797;line-height:1.5;margin:0}
+.attention-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.attention-card{padding:12px 14px;background:white;border:1px solid #dce5eb;border-left:4px solid #bd443b;border-radius:8px;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.attention-card.increase{border-left-color:#208253}.attention-card strong{font-size:16px;color:#bd443b}.attention-card.increase strong{color:#208253}
+.attention-card small{font-size:10px;color:#758895}.attention-date{background:none;border:0;text-align:left;padding:0;color:#355f79;font-weight:650;cursor:pointer;font-size:12px;line-height:1.4}.attention-date:hover{text-decoration:underline}
+.insight-empty{grid-column:1/-1;color:#718594;font-size:12px;line-height:1.6}
+.availability-summary{display:flex;align-items:center;gap:22px;border-top:1px solid #dce5eb;margin-top:14px;padding-top:12px;flex-wrap:wrap}
+.availability-number{display:flex;flex-direction:column;gap:2px}.availability-number strong{font-size:24px;color:#345d74}.availability-number span{font-size:11px;color:#718594}
+.availability-explanation{max-width:330px}.insight-footnote{margin-top:10px}
+@media(max-width:800px){.attention-cards{grid-template-columns:1fr}.insight-heading{align-items:start;flex-direction:column}#propertyInsights{padding:12px}.availability-summary{gap:12px}#expandedDialog .expanded-scroll{max-height:36vh}}

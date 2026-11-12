@@ -15,3 +15,21 @@ test('near-market suggestions stay yellow AVG through plus or minus ten percent'
  assert.equal(advice(100,111).label,'INCREASE');assert.equal(advice(100,89).label,'DECREASE');
  assert.equal(advice(null,500).move,null);assert.equal(advice(500,null).css,'');
 });
+
+test('attention ranks large dollar gaps, ignores small changes and skips booked or locked nights',()=>{
+ const {attentionPeriods}=require('../public/engine.js'),dates=['2027-06-01','2027-06-02','2027-06-03','2027-06-04','2027-06-05'];
+ const own=dates.map((date,i)=>({date,rate:[100,1000,500,800,600][i],available:i!==3,locked:i===4,minNights:2}));
+ const comps=[{snapshot:{days:dates.map((date,i)=>({date,rate:[80,700,475,400,300][i],available:true,minNights:3}))}}];
+ const result=attentionPeriods(dates,own,comps);assert.equal(result.length,1);assert.equal(result[0].start,'2027-06-02');assert.equal(result[0].nightlyGap,300);assert.equal(result[0].direction,'DECREASE');assert.equal(result[0].minStayMismatch,true);
+});
+test('attention groups actionable consecutive nights and excludes unavailable or unknown comp prices',()=>{
+ const {attentionPeriods}=require('../public/engine.js'),dates=['2027-07-01','2027-07-02','2027-07-03'];const own=dates.map(date=>({date,rate:600,available:true}));
+ const comps=[{snapshot:{days:dates.map((date,i)=>({date,rate:800,available:i<2?true:null}))}},{snapshot:{days:dates.map(date=>({date,rate:100,available:false}))}}];
+ const result=attentionPeriods(dates,own,comps);assert.equal(result.length,1);assert.equal(result[0].nights,2);assert.equal(result[0].target,800);assert.equal(result[0].minComps,1);assert.equal(result[0].direction,'INCREASE');
+});
+test('availability compares matched dates only and distinguishes unknown dates from available',()=>{
+ const {availabilityComparison}=require('../public/engine.js'),dates=['2027-01-01','2027-01-02','2027-01-03'];
+ const own=[{date:dates[0],available:false},{date:dates[1],available:true}];
+ const comps=[{snapshot:{days:[{date:dates[0],available:false},{date:dates[1],available:null},{date:dates[2],available:false}]}},{snapshot:{days:[{date:dates[0],available:true},{date:dates[1],available:false}]}}];
+ const result=availabilityComparison(dates,own,comps);assert.equal(result.matched,2);assert.equal(result.ownPercent,50);assert.equal(result.compPercent,75);assert.equal(availabilityComparison(dates,own,[]).compPercent,null);
+});
