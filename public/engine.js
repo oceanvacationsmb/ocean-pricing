@@ -44,5 +44,6 @@
   }
   function scanProgress(job,ids,due){const requested=new Set(due),completed=new Set(due.slice(0,job.processed)),errors=new Set((job.errors||[]).map(e=>e.listingId));const unique=[...new Set(ids)],done=unique.filter(id=>!requested.has(id)||completed.has(id)).length;return {total:unique.length,done,percent:unique.length?Math.round(done/unique.length*100):100,errors:unique.filter(id=>errors.has(id)).length};}
   function needsAttention(kind,current,comp){if(!Number.isFinite(current)||!Number.isFinite(comp)||current<0||comp<0)return false;const gap=Math.abs(current-comp);if(kind==='stay')return gap>=2;const dollars=kind==='cleaning'?25:50,percent=kind==='cleaning'?.25:.20;return gap>=dollars&&(comp===0?current>0:gap/comp>=percent);}
-  const api={needsAttention,median,propose,adjustment,advice,calendarWindow,attentionPeriods,availabilityComparison,windowComparisons,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
+  function ratingRanks(values){const valid=values.map(v=>Number.isFinite(v)&&v>0&&v<=5?Math.round(v*100):null);return valid.map(v=>v===null?null:1+valid.filter(other=>other!==null&&other>v).length);}
+  const api={ratingRanks,needsAttention,median,propose,adjustment,advice,calendarWindow,attentionPeriods,availabilityComparison,windowComparisons,scanProgress};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PricingMath=api;
 })(typeof window!=='undefined'?window:globalThis);
