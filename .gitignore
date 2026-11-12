@@ -1,0 +1,9 @@
+.local/
+.env*
+!.env.example
+node_modules/
+*.log
+
+# Local screenshots contain saved business data.
+/*.png
+
