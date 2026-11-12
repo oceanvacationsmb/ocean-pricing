@@ -2,6 +2,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const {Providers,fail}=require('./providers.cjs');const {Store,Scans,parseListing}=require('./core.cjs');
 function createApp({directory=path.join(__dirname,'.local'),providers=new Providers(),titleReader=require('./airbnb-title.cjs').readAirbnbTitle,hosting=null,renderKeys=null}={}){
  const store=new Store(directory);providers.setRateLimitStore?.(directory);const scans=new Scans(store,providers),session=crypto.randomBytes(32).toString('hex'),calendarFlights=new Map(),titleFlights=new Map();
+ const ratingUpdate=new (require('./ratings.cjs').RatingUpdate)(store,providers,titleReader);
  const auth=hosting?new (require('./auth.cjs').DashboardAuth)(hosting):null;
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties.map(p=>({...p,airbnbListingId:store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId||null})),includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
@@ -19,6 +20,8 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
     let body={};if(req.method==='POST'){let buffer='';for await(const chunk of req){buffer+=chunk;if(buffer.length>100000)throw fail(413,'Request is too large.');}try{body=JSON.parse(buffer||'{}');}catch{throw fail(400,'Invalid request.');}}
     const key=req.method+' '+route;
     if(req.method==='POST'&&key!=='POST /api/render-keys'&&(renderKeys?.busy||renderKeys?.deploying))throw fail(409,'Render is updating API keys. Wait for the deployment to finish, then reload before making more changes.');
+    if(key==='POST /api/ratings-update'){if(scans.activeJob)throw fail(409,'Wait for the current comp scan to finish.');return send(res,200,ratingUpdate.start());}
+    if(key==='GET /api/ratings-update')return send(res,200,ratingUpdate.job||{status:'idle'});
     if(key==='GET /api/state')return send(res,200,bootstrap());
     if(key==='POST /api/guesty/channel-links'){
  const p=store.data.properties.find(p=>p.id===body.propertyId);if(!p)throw fail(400,'Choose an existing property.');
@@ -39,7 +42,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
     }
     if(key==='POST /api/render-keys'){
      if(!hosting||!renderKeys)throw fail(400,'One-time setup needed: add RENDER_API_KEY to this service in Render, then deploy. Do not enter that key here.');
-     if(scans.activeJob||calendarFlights.size)throw fail(409,'Wait for scans and rate refreshes to finish before updating keys.');
+     if(scans.activeJob||calendarFlights.size||ratingUpdate.job?.status==='running')throw fail(409,'Wait for scans and rate refreshes to finish before updating keys.');
      await store.flush();const result=await renderKeys.update(body);return send(res,200,result);
     }
     if(key==='POST /api/settings'){

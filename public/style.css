@@ -531,3 +531,5 @@
 
 #expandedCalendar td small{white-space:normal}#expandedCalendar .expanded-suggested small{overflow-wrap:anywhere;line-height:12px}
 @media(min-width:1001px) and (max-height:800px){#propertyInsights .window-metric{min-height:56px;padding-top:6px;padding-bottom:6px}#propertyInsights .window-metric strong{font-size:13px;line-height:17px}.window-metrics{gap:6px}#expandedDialog #propertyInsights{gap:3px;padding-top:6px;padding-bottom:6px}#propertyInsights .attention-card strong{font-size:16px}#propertyInsights .attention-card{padding:5px 10px}#propertyInsights .attention-date{font-size:10px;line-height:13px}.metric-icon{top:12px}}
+
+.window-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:650px){.window-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
