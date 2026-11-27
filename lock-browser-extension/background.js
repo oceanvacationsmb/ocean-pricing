@@ -6,20 +6,22 @@ async function refresh() {
   const { enabled } = await chrome.storage.local.get('enabled');
   if (!enabled) {
     await chrome.storage.local.set({ status: 'Enable collection and click Save first.' });
-    return;
+    return { ok: false, error: 'Enable collection in Lock Reader first.' };
   }
   const tabs = await chrome.tabs.query({ url: 'https://app.guesty.com/integrations/guesty-locks-manager/locks/linked*' });
   if (!tabs.length) {
     await chrome.storage.local.set({ status: 'Open Guesty Locks Manager and sign in. Last readings were kept.' });
-    return;
+    return { ok: false, error: 'Open Guesty Locks Manager in this Chrome profile.' };
   }
   await chrome.storage.local.set({ status: 'Refreshing Guesty. If no new collection appears, check whether Guesty requires sign-in.' });
   await chrome.tabs.reload(tabs[0].id);
+  return { ok: true };
 }
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'refresh-locks') refresh().catch(() => {}); });
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
-    if (message.type === 'refresh' && sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('popup.html')) { await refresh(); return { ok: true }; }
+    const calendarSender = sender.url && /^https:\/\/oceanvacationsmb\.github\.io\/-shared_calendar-\/calendar_all\/(?:index\.html)?(?:[?#].*)?$/.test(sender.url);
+    if (message.type === 'refresh' && sender.id === chrome.runtime.id && (sender.url === chrome.runtime.getURL('popup.html') || calendarSender)) return await refresh();
     if (message.type !== 'readings' || !sender.tab || new URL(sender.url).origin !== 'https://app.guesty.com') return { ok: false };
     const { enabled, collectorKey, listingId, allLocks } = await chrome.storage.local.get(['enabled', 'collectorKey', 'listingId', 'allLocks']);
     if (!enabled) return { ok: false };

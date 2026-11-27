@@ -16,6 +16,9 @@ test('refresh accepts the extension settings tab but not a Guesty content script
   const call = sender => new Promise(resolve => listener({ type: 'refresh' }, sender, resolve));
   assert.equal((await call({ id: 'test', url: 'chrome-extension://test/popup.html', tab: { id: 1 } })).ok, true);
   assert.equal(reloads, 1);
+  assert.equal((await call({ id: 'test', url: 'https://oceanvacationsmb.github.io/-shared_calendar-/calendar_all/', tab: { id: 3 } })).ok, true);
+  assert.equal(reloads, 2);
+  assert.equal((await call({ id: 'test', url: 'https://oceanvacationsmb.github.io/unrelated/', tab: { id: 4 } })).ok, false);
   assert.equal((await call({ id: 'test', url: 'https://app.guesty.com/', tab: { id: 2 } })).ok, false);
-  assert.equal(reloads, 1);
+  assert.equal(reloads, 2);
 });

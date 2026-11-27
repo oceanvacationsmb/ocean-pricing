@@ -1,5 +1,9 @@
 # Ocean Vacations lock reader: one-property pilot
 
+## Calendar refresh button (0.3.0)
+
+On the original GitHub-hosted calendar, Refresh locks now asks this installed extension to reload the signed-in Guesty lock-list tab, then waits for a newer uploaded batch. Reload the extension and calendar once after upgrading. Only the exact shared-calendar page can request this read-only action. No calendar key or Guesty credentials are sent through the page bridge. On mobile or a browser without this extension, the calendar can download uploaded readings but cannot trigger a desktop collection; it reports that limitation instead of claiming a fresh poll. The timestamp is collection time, not the device's own measurement time.
+
 ## All-lock rollout (0.2.0)
 
 After verifying the pilot, change Render `LOCK_EXPECTED_LISTING_IDS` to `all`. The server requires at least 26 unique known properties (override with `LOCK_EXPECTED_COUNT` only after verifying inventory) and rejects collections missing previously seen properties. Reload this unpacked extension, enable All linked locks, Save, and Refresh now. Existing upload/view keys remain unchanged. Automatic collection continues every 15 minutes while the signed-in Guesty tab and Chrome are open. Removal of a linked property requires an intentional server configuration/restart; incomplete refreshes do not erase last good readings.
