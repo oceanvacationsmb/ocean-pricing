@@ -9,6 +9,8 @@ test('browser sign-in survives two parallel connection attempts and completes to
  const verifier='b'.repeat(50),challenge=crypto.createHash('sha256').update(verifier).digest('base64url');
  const query=new URLSearchParams({client_id:client.client_id,response_type:'code',redirect_uri:'https://chatgpt.com/callback',code_challenge:challenge,code_challenge_method:'S256',scope:'guesty:read guesty:write',state:'test-state',resource:'http://127.0.0.1:8772/mcp'});
  const first=await fetch(base+'/authorize?'+query);assert.equal(first.status,200);const html=await first.text();
+ assert.match(first.headers.get('content-security-policy'),/form-action 'self' https:\/\/chatgpt\.com;/);
+ assert.doesNotMatch(first.headers.get('content-security-policy'),/form-action[^;]*\*/);
  const ticket=html.match(/name="ticket" value="([^"]+)"/)[1];assert.equal(first.headers.get('set-cookie'),null);
  const second=await fetch(base+'/authorize?'+query);assert.equal(second.status,200);
  // Simulate losing process-local registration and pending state during deployment.

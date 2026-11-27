@@ -22,7 +22,8 @@ class ConnectorAuth{
   if(scopes.some(s=>!['guesty:read','guesty:write'].includes(s)))throw new InvalidScopeError('Unsupported scope.');
   if(this.pending.size>=100)throw new InvalidRequestError('Too many pending connections.');
   const nonce=random(),entry={client,params:{...params,scopes},nonce:hash(nonce),expires:Date.now()+600000};const ticket=this.seal(entry);this.pending.set(hash(ticket),entry);
-  res.set('Cache-Control','no-store').set('Content-Security-Policy',"default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+  const callbackOrigin=new URL(params.redirectUri).origin;
+  res.set('Cache-Control','no-store').set('Content-Security-Policy',"default-src 'none'; style-src 'self'; form-action 'self' "+callbackOrigin+"; base-uri 'none'; frame-ancestors 'none'");
   res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Ocean Vacations</title><link rel="stylesheet" href="/style.css"></head><body class="login-page"><main class="login-card"><h1>Connect Ocean Vacations</h1><p>Allow access to Guesty property rates and guest conversations.'+(scopes.includes('guesty:write')?' This connection can also change rates and send replies when instructed.':' This connection is read-only.')+'</p><form method="post" action="/connect/approve"><input type="hidden" name="ticket" value="'+ticket+'"><label for="password">Ocean Pricing dashboard password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Connect</button></form></main></body></html>');
  }
  approve(req,res){
