@@ -1,0 +1,6 @@
+body { width: 320px; padding: 16px; margin: 0; font: 14px system-ui, sans-serif; color: #20353b; background: #fff; }
+h1 { font-size: 20px; margin: 0 0 16px; }
+label { display: block; margin: 12px 0; }
+input:not([type=checkbox]) { box-sizing: border-box; width: 100%; margin-top: 6px; padding: 8px; }
+button { padding: 8px 12px; margin-right: 6px; cursor: pointer; }
+p { overflow-wrap: anywhere; line-height: 1.5; }

@@ -1,5 +1,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {normalizeLocks,createLockReader}=require('../locks.cjs');
+test('dashboard battery fractions convert to percentages',()=>{
+ const rows=normalizeLocks({data:[{batteryLevel:0.94,online:true,listings:[{id:'one'}]}]});
+ assert.equal(rows[0].batteryPercent,94);assert.equal(rows[0].batteryStatus,'good');
+});
 test('locks use device connectivity, never provider connectivity, and omit secrets',()=>{
  const rows=normalizeLocks({locks:[{id:'lock',batteryStatus:'Good',providerAccount:{status:'CONNECTED',webviewUrl:'secret'},listings:[{id:'one',nickname:'MB - 2131'}]}]});
  assert.equal(rows[0].online,null);assert.equal(rows[0].batteryPercent,null);assert.equal(rows[0].batteryStatus,'good');assert.equal(rows[0].providerAccount,undefined);

@@ -5,7 +5,7 @@ function normalizeLocks(data) {
  const total=Number(data?.total??data?.count??data?.pagination?.total??rows.length);
  if(total>rows.length)throw fail(502,'Guesty returned an incomplete lock page. Saved readings were kept.');
  return rows.flatMap(lock=>{
-  const raw=lock.batteryPercent??lock.batteryPercentage??lock.batteryLevel??lock.battery?.level??(typeof lock.battery==='number'?lock.battery:null);
+  const raw=lock.batteryPercent??lock.batteryPercentage??(typeof lock.batteryLevel==='number'?lock.batteryLevel*100:null)??lock.battery?.level??(typeof lock.battery==='number'?lock.battery:null);
   const batteryPercent=typeof raw==='number'&&Number.isFinite(raw)&&raw>=0&&raw<=100?Math.round(raw):null;
   const status=lock.batteryStatus??lock.battery?.status??(typeof lock.battery==='string'?lock.battery:'');
   const batteryStatus=batteryPercent!==null?(batteryPercent<=10?'critical':batteryPercent<=30?'low':'good'):/^(good|low|critical)$/i.test(status)?status.toLowerCase():'unknown';
