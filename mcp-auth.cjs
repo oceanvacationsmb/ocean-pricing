@@ -29,14 +29,21 @@ class ConnectorAuth{
   this.prune();const ticketKey=hash(String(req.body.ticket||''));const entry=this.pending.get(ticketKey)||this.open(req.body.ticket);
   if(req.headers.origin!==this.origin)return res.status(403).send('Sign-in was submitted from a different browser origin. Restart Connect and complete sign-in in the window it opens.');
   if(!entry)return res.status(400).send('This connection attempt expired or the service restarted. Close this window and click Connect again in ChatGPT.');
-  if(entry.consumed)return res.status(400).send('This connection attempt was already used. Start Connect again.');
   // Every approval requires a same-origin POST, a sealed ticket and password re-entry.
   // Do not depend on cookies: embedded OAuth browsers may suppress them.
   const supplied=Buffer.from('admin:'+String(req.body.password||'')).toString('base64');
   if(!require('./hosting.cjs').authorized('Basic '+supplied,this.password)){entry.failures=(entry.failures||0)+1;this.pending.set(ticketKey,entry);if(entry.failures>=5)return res.status(429).send('Too many failed attempts. Start a new connection.');return res.status(401).send('Incorrect dashboard password. Return and try again.');}
   if(entry.failures>=5)return res.status(429).send('Too many failed attempts. Start a new connection.');
+  if(entry.consumed){
+   const existing=this.codes.get(entry.approvalCode);
+   if(existing&&existing.expires>Date.now()){
+    const callback=new URL(entry.params.redirectUri);callback.searchParams.set('code',entry.approvalCode);if(entry.params.state)callback.searchParams.set('state',entry.params.state);
+    return res.redirect(303,callback.href);
+   }
+   return res.status(200).type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign-in submitted</title></head><body><h1>Sign-in already submitted</h1><p>Return to ChatGPT to check the connection. This form cannot create another sign-in.</p></body></html>');
+  }
   this.clients.set(entry.client.client_id,entry.client);
-  entry.consumed=true;this.pending.set(ticketKey,entry);const code=random();this.codes.set(code,{...entry,expires:Date.now()+60000});
+  const code=random();entry.consumed=true;entry.approvalCode=code;this.pending.set(ticketKey,entry);this.codes.set(code,{...entry,expires:Date.now()+60000});
   const target=new URL(entry.params.redirectUri);target.searchParams.set('code',code);if(entry.params.state)target.searchParams.set('state',entry.params.state);
   res.redirect(303,target.href);
  }
