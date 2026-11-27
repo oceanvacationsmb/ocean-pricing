@@ -52,8 +52,13 @@ Render environment variables are needed for MCP. Do not configure authentication
 as "None" or share Guesty tokens with a chat.
 
 Tools: `list_properties`, `read_nightly_rate`, `read_inbox`, `read_messages`,
-`update_nightly_rate`, and `send_guest_reply`. Read tools need `guesty:read`;
+`read_property`, `read_lock_status`, `update_nightly_rate`, and `send_guest_reply`. Read tools need `guesty:read`;
 write tools additionally need `guesty:write` and explicit user instructions.
+The consent form grants read-only access by default. The owner must explicitly
+check "Allow rate changes and sending guest replies" to grant write access.
+Connecting never executes a Guesty update. Use `read_inbox` with `listingId` for
+single-property testing. `read_lock_status` does not publish to the calendar and
+does not silently fall back to stored snapshots if lock authentication fails.
 Rate changes affect one date only and require the expected live rate, reject
 unavailable/locked dates, and attempt read-back verification. Message sends use
 persisted action IDs to prevent duplicate retries; an uncertain send requires

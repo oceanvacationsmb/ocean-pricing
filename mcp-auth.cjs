@@ -24,7 +24,7 @@ class ConnectorAuth{
   const nonce=random(),entry={client,params:{...params,scopes},nonce:hash(nonce),expires:Date.now()+600000};const ticket=this.seal(entry);this.pending.set(hash(ticket),entry);
   const callbackOrigin=new URL(params.redirectUri).origin;
   res.set('Cache-Control','no-store').set('Content-Security-Policy',"default-src 'none'; style-src 'self'; form-action 'self' "+callbackOrigin+"; base-uri 'none'; frame-ancestors 'none'");
-  res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Ocean Vacations</title><link rel="stylesheet" href="/style.css"></head><body class="login-page"><main class="login-card"><h1>Connect Ocean Vacations</h1><p>Allow access to Guesty property rates and guest conversations.'+(scopes.includes('guesty:write')?' This connection can also change rates and send replies when instructed.':' This connection is read-only.')+'</p><form method="post" action="/connect/approve"><input type="hidden" name="ticket" value="'+ticket+'"><label for="password">Ocean Pricing dashboard password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Connect</button></form></main></body></html>');
+  res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Ocean Vacations</title><link rel="stylesheet" href="/style.css"></head><body class="login-page"><main class="login-card"><h1>Connect Ocean Vacations</h1><p>Read Guesty property information, rates and guest conversations.</p><form method="post" action="/connect/approve"><input type="hidden" name="ticket" value="'+ticket+'"><label><input type="checkbox" name="allowWrite" value="yes"> Allow rate changes and sending guest replies when I explicitly instruct the agent.</label><p>Leave unchecked for read-only access. Connecting does not change any rates or send messages.</p><label for="password">Comp Set login password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Connect</button></form></main></body></html>');
  }
  approve(req,res){
   this.prune();const ticketKey=hash(String(req.body.ticket||''));const entry=this.pending.get(ticketKey)||this.open(req.body.ticket);
@@ -44,6 +44,7 @@ class ConnectorAuth{
    return res.status(200).type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign-in submitted</title></head><body><h1>Sign-in already submitted</h1><p>Return to ChatGPT to check the connection. This form cannot create another sign-in.</p></body></html>');
   }
   this.clients.set(entry.client.client_id,entry.client);
+  entry.params.scopes=req.body.allowWrite==='yes'?['guesty:read','guesty:write']:['guesty:read'];
   const code=random();entry.consumed=true;entry.approvalCode=code;this.pending.set(ticketKey,entry);this.codes.set(code,{...entry,expires:Date.now()+60000});
   const target=new URL(entry.params.redirectUri);target.searchParams.set('code',code);if(entry.params.state)target.searchParams.set('state',entry.params.state);
   res.redirect(303,target.href);

@@ -58,7 +58,7 @@ test('MCP discovery, unauthorized challenge and authenticated tool listing work 
  const denied=await fetch(base+'/mcp',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/resource_metadata/);
  const token=connector.auth.issue({client_id:'test'},['guesty:read']);
  const response=await fetch(base+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}})});
- assert.equal(response.status,200);const data=await response.json();assert.equal(data.result.tools.length,6);
+ assert.equal(response.status,200);const data=await response.json();assert.equal(data.result.tools.length,8);
  const write=await fetch(base+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'update_nightly_rate',arguments:{listingId:'one',date:'2026-12-20',expectedCurrentRate:201,newRate:200,confirm:true}}})});
  assert.equal((await write.json()).result.isError,true);
 });
@@ -68,4 +68,24 @@ test('rate change checks current value, touches only one date and reads back',as
  assert.equal((await tools.update_nightly_rate.run(args)).verified,true);
  assert.deepEqual(writes,[{startDate:'2026-12-20',endDate:'2026-12-20',price:200}]);
  await assert.rejects(tools.update_nightly_rate.run(args),/Rate changed/);assert.equal(writes.length,1);
+});
+test('owner must explicitly check write permission; default approval stays read-only',async()=>{
+ for(const allowWrite of [undefined,'yes']){
+  const auth=new ConnectorAuth('https://example.com','test-password');
+  const client={client_id:'test'};const entry={client,params:{redirectUri:'https://chatgpt.com/callback',scopes:['guesty:read','guesty:write'],codeChallenge:'test'},expires:Date.now()+60000};
+  const ticket=auth.seal(entry);let redirect;
+  const res={redirect(status,url){assert.equal(status,303);redirect=url;},status(status){assert.fail('Unexpected status '+status);}};
+  auth.approve({headers:{origin:'https://example.com'},body:{ticket,password:'test-password',allowWrite}},res);
+  const code=new URL(redirect).searchParams.get('code');
+  assert.deepEqual(auth.codes.get(code).params.scopes,allowWrite==='yes'?['guesty:read','guesty:write']:['guesty:read']);
+ }
+});
+test('single-property reads filter inbox and never replace lock failures with stored values',async()=>{
+ const paths=[];const store={data:{properties:[{id:'one',name:'1463'}],lockSnapshot:{locks:[{listingId:'one',online:true}]}}};
+ const tools=createTools({store,providers:{guestyGet:async path=>{paths.push(path);return {results:[]};},guestyToken:async()=> 'fake',guestyRequest:async()=>({ok:false,status:401})}});
+ await tools.read_inbox.run({listingId:'one'});
+ const filters=JSON.parse(new URL('https://example.com'+paths[0]).searchParams.get('filters'));
+ assert.deepEqual(filters,[{field:'listing._id',operator:'$eq',value:'one'}]);
+ await assert.rejects(tools.read_lock_status.run({listingId:'one'}),/HTTP 401/);
+ assert.equal(store.data.lockSnapshot.locks[0].online,true);
 });
