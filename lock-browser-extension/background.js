@@ -35,7 +35,24 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       method: 'POST', headers: { Authorization: 'Bearer ' + collectorKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ complete: true, capturedAt: message.capturedAt, locks }), signal: AbortSignal.timeout(45000)
     });
-    if (!response.ok) throw Error('Upload failed (HTTP ' + response.status + '). Previous server readings were kept.');
+    if (!response.ok) {
+      const details = await response.json().catch(() => ({}));
+      const safeErrors = new Set([
+        'Use unique known Guesty listing IDs.',
+        'A complete lock collection is required.',
+        'Collection is too old.',
+        'Collection does not match the configured test properties.',
+        'Incomplete lock collection. Previous readings were kept.',
+        'Lock access key not accepted.',
+        'Origin not allowed.',
+        'Older readings were rejected.',
+        'Battery must be between 0 and 100, or null.',
+        'Connectivity must be true, false, or null.',
+        'Invalid lock collection.'
+      ]);
+      const reason = safeErrors.has(details.error) ? ' ' + details.error : '';
+      throw Error('Upload failed (HTTP ' + response.status + ', ' + locks.length + ' readings).' + reason);
+    }
     await chrome.storage.local.set({ status: 'Uploaded ' + locks.length + ' lock reading(s).', lastSuccess: new Date().toISOString() });
     await chrome.action.setBadgeText({ text: 'OK' });
     return { ok: true };

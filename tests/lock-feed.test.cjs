@@ -1,6 +1,26 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createLockFeed } = require('../lock-feed.cjs');
+test('lock-only properties are verified with Guesty without changing pricing catalog', async () => {
+  const id = '68db1a47ccc0790022ab80c6';
+  const properties = [];
+  let lookups = 0;
+  const feed = createLockFeed({ store: { data: { properties } }, providers: { async guestyGet(path) { lookups++; assert.ok(path.startsWith('/listings/' + id + '?')); return { _id: id, nickname: 'GCSSB - 113B-13N', code: 'NEVER_COPY' }; } }, env: { EXTENSION_KEY: 'upload', CALENDAR_KEY: 'staff', LOCK_EXPECTED_LISTING_IDS: 'all', LOCK_EXPECTED_COUNT: '1' } });
+  async function call(method, input) {
+    const req = { method, headers: { authorization: 'Bearer ' + (method === 'GET' ? 'staff' : 'upload') }, async *[Symbol.asyncIterator]() { yield JSON.stringify(input); } };
+    const res = { setHeader() {}, writeHead(status) { this.status = status; }, end(text) { this.body = JSON.parse(text); } };
+    await feed(req, res, new URL('https://example.com/api/lock-feed')); return res;
+  }
+  const locks = [{ listingId: id, batteryPercent: 94, online: true }];
+  assert.equal((await call('POST', { complete: true, capturedAt: new Date(Date.now() - 2000).toISOString(), locks })).status, 200);
+  assert.equal((await call('POST', { complete: true, capturedAt: new Date(Date.now() - 1000).toISOString(), locks })).status, 200);
+  assert.equal(lookups, 1);
+  assert.equal(properties.length, 0);
+  const result = await call('GET');
+  assert.equal(result.body.locks[0].propertyName, 'GCSSB - 113B-13N');
+  assert.equal(JSON.stringify(result.body).includes('NEVER_COPY'), false);
+  assert.equal((await call('POST', { complete: true, capturedAt: new Date().toISOString(), locks: [...locks, ...locks] })).status, 400);
+});
 test('clear key names take precedence while legacy names remain supported', async () => {
   const feed = createLockFeed({ store: { data: { properties: [] } }, env: { EXTENSION_KEY: 'new-upload', CALENDAR_KEY: 'new-view', LOCK_VIEW_KEY: 'old-view' } });
   async function call(key) {

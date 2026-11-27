@@ -1,7 +1,8 @@
 const { snapshot, authorized } = require('./agent-api.cjs');
 
-function createLockFeed({ store, env = process.env }) {
+function createLockFeed({ store, providers, env = process.env }) {
   let latest = null;
+  const lockProperties = new Map();
   return async (req, res, url) => {
     if (url.pathname !== '/api/lock-feed') return false;
     const origin = req.headers.origin;
@@ -39,7 +40,22 @@ function createLockFeed({ store, env = process.env }) {
       const input = JSON.parse(raw);
       if (input.complete !== true || !Array.isArray(input.locks) || input.locks.length > 200) return send(400, { error: 'A complete lock collection is required.' });
       if (Date.now() - Date.parse(input.capturedAt) > 300000) return send(400, { error: 'Collection is too old.' });
-      const next = snapshot(input, store.data.properties);
+      const catalog = new Map(store.data.properties.map(property => [property.id, property]));
+      const ids = new Set();
+      for (const lock of input.locks) {
+        if (typeof lock.listingId !== 'string' || ids.has(lock.listingId)) return send(400, { error: 'Use unique known Guesty listing IDs.' });
+        ids.add(lock.listingId);
+        if (catalog.has(lock.listingId)) continue;
+        if (!lockProperties.has(lock.listingId)) {
+          if (!/^[a-f0-9]{24}$/i.test(lock.listingId) || !providers?.guestyGet) return send(400, { error: 'Use unique known Guesty listing IDs.' });
+          // Verify lock-only properties through Guesty, without importing them into pricing.
+          const listing = await providers.guestyGet('/listings/' + lock.listingId + '?fields=_id%20nickname%20title');
+          if (String(listing?._id || listing?.id) !== lock.listingId) return send(400, { error: 'Use unique known Guesty listing IDs.' });
+          lockProperties.set(lock.listingId, { id: lock.listingId, name: String(listing.nickname || listing.title || lock.listingId).slice(0, 200) });
+        }
+        catalog.set(lock.listingId, lockProperties.get(lock.listingId));
+      }
+      const next = snapshot(input, [...catalog.values()]);
       if (latest && Date.parse(next.capturedAt) <= Date.parse(latest.capturedAt)) return send(409, { error: 'Older readings were rejected.' });
       const expected = String(env.LOCK_EXPECTED_LISTING_IDS || '').split(',').map(x => x.trim()).filter(Boolean);
       if (expected.length === 1 && expected[0] === 'all') {
