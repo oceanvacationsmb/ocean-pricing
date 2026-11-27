@@ -1,5 +1,9 @@
 # Ocean Vacations lock reader: one-property pilot
 
+## Any Guesty page (0.3.1)
+
+An open Guesty tab anywhere in app.guesty.com is now sufficient to start collection. If there is no lock-list tab, Refresh or the 15-minute alarm opens one inactive background tab using the existing Guesty session. It never navigates the inbox/calendar tab or bypasses sign-in. The background lock tab remains open for subsequent collections; if closed, it is recreated on the next collection while another Guesty tab exists. Computer awake, Chrome running, and a valid Guesty session are still required.
+
 ## Calendar refresh button (0.3.0)
 
 On the original GitHub-hosted calendar, Refresh locks now asks this installed extension to reload the signed-in Guesty lock-list tab, then waits for a newer uploaded batch. Reload the extension and calendar once after upgrading. Only the exact shared-calendar page can request this read-only action. No calendar key or Guesty credentials are sent through the page bridge. On mobile or a browser without this extension, the calendar can download uploaded readings but cannot trigger a desktop collection; it reports that limitation instead of claiming a fresh poll. The timestamp is collection time, not the device's own measurement time.

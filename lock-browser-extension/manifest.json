@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ocean Vacations Lock Reader",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Collects lock battery and connection readings from your signed-in Guesty Locks Manager.",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["https://app.guesty.com/*", "https://ocean-pricing.onrender.com/*"],

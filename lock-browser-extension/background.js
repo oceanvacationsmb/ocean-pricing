@@ -2,7 +2,12 @@ const endpoint = 'https://ocean-pricing.onrender.com/api/lock-feed';
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 chrome.runtime.onInstalled.addListener(() => chrome.alarms.create('refresh-locks', { periodInMinutes: 15 }));
 chrome.runtime.onStartup.addListener(() => chrome.alarms.create('refresh-locks', { periodInMinutes: 15 }));
-async function refresh() {
+let refreshPending = null;
+function refresh() {
+  if (!refreshPending) refreshPending = refreshOnce().finally(() => { refreshPending = null; });
+  return refreshPending;
+}
+async function refreshOnce() {
   const { enabled } = await chrome.storage.local.get('enabled');
   if (!enabled) {
     await chrome.storage.local.set({ status: 'Enable collection and click Save first.' });
@@ -10,8 +15,14 @@ async function refresh() {
   }
   const tabs = await chrome.tabs.query({ url: 'https://app.guesty.com/integrations/guesty-locks-manager/locks/linked*' });
   if (!tabs.length) {
-    await chrome.storage.local.set({ status: 'Open Guesty Locks Manager and sign in. Last readings were kept.' });
-    return { ok: false, error: 'Open Guesty Locks Manager in this Chrome profile.' };
+    const guestyTabs = await chrome.tabs.query({ url: 'https://app.guesty.com/*' });
+    if (!guestyTabs.length) {
+      await chrome.storage.local.set({ status: 'Open any Guesty page and sign in. Last readings were kept.' });
+      return { ok: false, error: 'Open any Guesty page in this Chrome profile and sign in.' };
+    }
+    await chrome.storage.local.set({ status: 'Opening Locks Manager in a background tab. Your current Guesty page will stay unchanged.' });
+    await chrome.tabs.create({ url: 'https://app.guesty.com/integrations/guesty-locks-manager/locks/linked', active: false });
+    return { ok: true };
   }
   await chrome.storage.local.set({ status: 'Refreshing Guesty. If no new collection appears, check whether Guesty requires sign-in.' });
   await chrome.tabs.reload(tabs[0].id);
