@@ -22,7 +22,6 @@ class ConnectorAuth{
   if(scopes.some(s=>!['guesty:read','guesty:write'].includes(s)))throw new InvalidScopeError('Unsupported scope.');
   if(this.pending.size>=100)throw new InvalidRequestError('Too many pending connections.');
   const nonce=random(),entry={client,params:{...params,scopes},nonce:hash(nonce),expires:Date.now()+600000};const ticket=this.seal(entry);this.pending.set(hash(ticket),entry);
-  res.cookie('mcpConsent_'+hash(ticket),nonce,{httpOnly:true,secure:this.origin.startsWith('https:'),sameSite:'lax',path:'/connect',maxAge:600000});
   res.set('Cache-Control','no-store').set('Content-Security-Policy',"default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
   res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Ocean Vacations</title><link rel="stylesheet" href="/style.css"></head><body class="login-page"><main class="login-card"><h1>Connect Ocean Vacations</h1><p>Allow access to Guesty property rates and guest conversations.'+(scopes.includes('guesty:write')?' This connection can also change rates and send replies when instructed.':' This connection is read-only.')+'</p><form method="post" action="/connect/approve"><input type="hidden" name="ticket" value="'+ticket+'"><label for="password">Ocean Pricing dashboard password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Connect</button></form></main></body></html>');
  }
@@ -30,16 +29,16 @@ class ConnectorAuth{
   this.prune();const ticketKey=hash(String(req.body.ticket||''));const entry=this.pending.get(ticketKey)||this.open(req.body.ticket);
   if(req.headers.origin!==this.origin)return res.status(403).send('Sign-in was submitted from a different browser origin. Restart Connect and complete sign-in in the window it opens.');
   if(!entry)return res.status(400).send('This connection attempt expired or the service restarted. Close this window and click Connect again in ChatGPT.');
-  const cookieName='mcpConsent_'+ticketKey+'=';
-  const nonce=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName))?.slice(cookieName.length);
-  if(!nonce||hash(nonce)!==entry.nonce)return res.status(400).send('The browser did not return the sign-in cookie. Close this window and reconnect in the same browser with cookies enabled for ocean-pricing.onrender.com.');
+  if(entry.consumed)return res.status(400).send('This connection attempt was already used. Start Connect again.');
+  // Every approval requires a same-origin POST, a sealed ticket and password re-entry.
+  // Do not depend on cookies: embedded OAuth browsers may suppress them.
   const supplied=Buffer.from('admin:'+String(req.body.password||'')).toString('base64');
   if(!require('./hosting.cjs').authorized('Basic '+supplied,this.password)){entry.failures=(entry.failures||0)+1;this.pending.set(ticketKey,entry);if(entry.failures>=5)return res.status(429).send('Too many failed attempts. Start a new connection.');return res.status(401).send('Incorrect dashboard password. Return and try again.');}
   if(entry.failures>=5)return res.status(429).send('Too many failed attempts. Start a new connection.');
   this.clients.set(entry.client.client_id,entry.client);
-  this.pending.delete(ticketKey);const code=random();this.codes.set(code,{...entry,expires:Date.now()+60000});
+  entry.consumed=true;this.pending.set(ticketKey,entry);const code=random();this.codes.set(code,{...entry,expires:Date.now()+60000});
   const target=new URL(entry.params.redirectUri);target.searchParams.set('code',code);if(entry.params.state)target.searchParams.set('state',entry.params.state);
-  res.clearCookie('mcpConsent_'+ticketKey,{path:'/connect'});res.redirect(303,target.href);
+  res.redirect(303,target.href);
  }
  getCode(client,code){this.prune();const value=this.codes.get(code);if(!value||value.client.client_id!==client.client_id)throw new InvalidGrantError('Invalid or expired code.');return value;}
  async challengeForAuthorizationCode(client,code){return this.getCode(client,code).params.codeChallenge;}
