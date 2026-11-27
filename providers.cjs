@@ -38,7 +38,10 @@ class Providers{
   try{return await this.tokenPending;}finally{this.tokenPending=null;}
  }
  async guestyGet(path){
-  const token=await this.guestyToken();const response=await this.guestyRequest('https://open-api.guesty.com/v1'+path,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},signal:AbortSignal.timeout(45000)});
+  let token=await this.guestyToken();
+  const read=()=>this.guestyRequest('https://open-api.guesty.com/v1'+path,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},signal:AbortSignal.timeout(45000)});
+  let response=await read();
+  if(response.status===401){if(this.token?.value===token)this.token=null;token=await this.guestyToken();response=await read();}
   if(!response.ok){if(response.status===401)this.token=null;throw fail(502,response.status===429?'Guesty rate limit reached. Wait and retry; no automatic retry was made.':'Guesty read failed ('+response.status+'). Check permissions and try again.');}return response.json();
  }
  async listings(){const all=[];for(let skip=0;skip<10000;){const fields='_id nickname title bedrooms bathrooms accommodates address amenities prices.currency prices.cleaningFee active pms.active integrations channels';const result=await this.guestyGet('/listings?active=true&limit=100&skip='+skip+'&fields='+encodeURIComponent(fields));const rows=Array.isArray(result)?result:result.results;if(!Array.isArray(rows))throw fail(502,'Guesty listing response was not recognized.');all.push(...rows);if(rows.length<100)break;skip+=rows.length;}return all.filter(p=>(p._id||p.id)&&p.active===true&&p.pms?.active!==false&&([0,1,3,4,5,6].includes(number(p.bedrooms))||(number(p.bedrooms)===2&&/(?:^|[^0-9])204[\s-]*2d(?:$|[^a-z0-9])/i.test(p.nickname||p.title||'')))).map(normalizeProperty);}

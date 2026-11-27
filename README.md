@@ -66,13 +66,28 @@ checking the conversation, not a new action ID. The comps UI remains read-only.
 
 Public OAuth client registrations are saved in the existing private data store,
 so ChatGPT's registered client ID survives a restart. No client secrets are saved.
-Authorization codes and access/refresh tokens remain in server memory; a restart
-requires signing in again, but not creating a new connector registration.
+Access and refresh authorization records now survive restarts in the existing
+private data store. Tokens are indexed by SHA-256 digest; records are AES-GCM
+encrypted with a key derived from ADMIN_PASSWORD. Raw bearer/refresh tokens are
+not saved. Issuance, rotation, and revocation wait for durable storage confirmation.
+Access tokens last one hour and clients renew them automatically with rotating
+refresh tokens (30-day inactivity window). Changing ADMIN_PASSWORD, revoking the
+connection, losing private storage, or exceeding that window requires reconnecting.
+Authorization codes remain short-lived and process-local; restarts during the
+code exchange may require restarting that one sign-in attempt.
 The password form carries an encrypted, ten-minute consent ticket so a restart
 between opening the form and submitting it does not discard that sign-in attempt.
-Changing the dashboard password invalidates outstanding consent tickets.
+Changing the dashboard password invalidates outstanding consent tickets and grants.
 Clients use PKCE S256; authorization codes are single-use. OAuth credentials are
-never written to GitHub data backups. Message-action receipts contain no body text.
+never written in plaintext to data backups. Encrypted grants are saved only in the
+configured private data repository or persistent disk, never the public source
+repository. Message-action receipts contain no body text.
+
+Guesty credentials are a separate connection: expired Guesty tokens are renewed
+with the existing client credentials. A read-only GET rejected with 401 refreshes
+the provider token and retries once. Writes, paid requests, and 429 responses are
+not automatically retried. Restart/expiry/inbox renewal tests use mocked Guesty
+responses and do not modify live reservations, rates, or messages.
 
 Maintenance: source is `mcp-server.cjs` and `mcp-auth.cjs`; tests are
 `tests/mcp.test.cjs`. Run `npm test`, commit, and push to `main` for Render to deploy.

@@ -13,6 +13,26 @@ class ConnectorAuth{
   }};
  }
  prune(){const now=Date.now();for(const map of [this.codes,this.tokens,this.refresh,this.pending])for(const [key,value]of map)if(value.expires<now)map.delete(key);}
+ grant(kind,key){
+  const map=kind==='access'?this.tokens:this.refresh;
+  const value=map.get(key)||this.open(this.store?.data.mcpGrants?.[kind]?.[key]);
+  if(!value||value.expires<=Date.now()||value.resource!==this.origin+'/mcp')return null;
+  return value;
+ }
+ async saveGrants(){
+  if(!this.store?.save)return;
+  this.store.data.mcpGrants||={access:{},refresh:{}};
+  for(const [kind,map]of [['access',this.tokens],['refresh',this.refresh]]){
+   const saved=this.store.data.mcpGrants[kind]||={};
+   for(const [key,ticket]of Object.entries(saved))if(!this.open(ticket))delete saved[key];
+   for(const [key,value]of map)if(value.expires>Date.now())saved[key]=this.seal(value);
+  }
+  this.store.save();await this.store.flush();
+ }
+ deleteGrant(kind,key){
+  (kind==='access'?this.tokens:this.refresh).delete(key);
+  if(this.store?.data.mcpGrants?.[kind])delete this.store.data.mcpGrants[kind][key];
+ }
  seal(entry){const iv=crypto.randomBytes(12),key=crypto.createHash('sha256').update('ocean-mcp-consent:'+this.password).digest();const cipher=crypto.createCipheriv('aes-256-gcm',key,iv);const encrypted=Buffer.concat([cipher.update(JSON.stringify(entry),'utf8'),cipher.final()]);return Buffer.concat([iv,cipher.getAuthTag(),encrypted]).toString('base64url');}
  open(ticket){try{if(typeof ticket!=='string'||ticket.length>16000)return null;const bytes=Buffer.from(ticket,'base64url'),key=crypto.createHash('sha256').update('ocean-mcp-consent:'+this.password).digest();const decipher=crypto.createDecipheriv('aes-256-gcm',key,bytes.subarray(0,12));decipher.setAuthTag(bytes.subarray(12,28));const entry=JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)),decipher.final()]).toString('utf8'));return entry.expires>Date.now()?entry:null;}catch{return null;}}
  async authorize(client,params,res){
@@ -51,8 +71,9 @@ class ConnectorAuth{
  }
  getCode(client,code){this.prune();const value=this.codes.get(code);if(!value||value.client.client_id!==client.client_id)throw new InvalidGrantError('Invalid or expired code.');return value;}
  async challengeForAuthorizationCode(client,code){return this.getCode(client,code).params.codeChallenge;}
- issue(client,scopes){this.prune();const access=random(),refresh=random();const base={clientId:client.client_id,scopes,resource:this.origin+'/mcp'};
-  this.tokens.set(hash(access),{...base,expires:Date.now()+3600000});this.refresh.set(hash(refresh),{...base,expires:Date.now()+7*86400000});
+ async issue(client,scopes){this.prune();const access=random(),refresh=random();const base={clientId:client.client_id,scopes,resource:this.origin+'/mcp'};
+  this.tokens.set(hash(access),{...base,expires:Date.now()+3600000});this.refresh.set(hash(refresh),{...base,expires:Date.now()+30*86400000});
+  await this.saveGrants();
   return {access_token:access,refresh_token:refresh,token_type:'Bearer',expires_in:3600,scope:scopes.join(' ')};
  }
  async exchangeAuthorizationCode(client,code,verifier,redirectUri,resource){const entry=this.getCode(client,code);
@@ -60,12 +81,12 @@ class ConnectorAuth{
   if((verifier!==undefined&&hash(verifier)!==entry.params.codeChallenge)||redirectUri!==entry.params.redirectUri||(resource&&resource.href!==this.origin+'/mcp'))throw new InvalidGrantError('Authorization verification failed.');
   this.codes.delete(code);return this.issue(client,entry.params.scopes);
  }
- async exchangeRefreshToken(client,token,scopes,resource){this.prune();const value=this.refresh.get(hash(token));
+ async exchangeRefreshToken(client,token,scopes,resource){this.prune();const value=this.grant('refresh',hash(token));
   if(!value||value.clientId!==client.client_id||(resource&&resource.href!==this.origin+'/mcp'))throw new InvalidGrantError('Reconnect Ocean Vacations.');
   const next=scopes||value.scopes;if(next.some(s=>!value.scopes.includes(s)))throw new InvalidScopeError('Scope escalation rejected.');
-  this.refresh.delete(hash(token));return this.issue(client,next);
+  this.deleteGrant('refresh',hash(token));return this.issue(client,next);
  }
- async verifyAccessToken(token){this.prune();const value=this.tokens.get(hash(token));if(!value)throw new InvalidTokenError('Reconnect Ocean Vacations.');return {token,clientId:value.clientId,scopes:value.scopes,expiresAt:Math.floor(value.expires/1000),resource:value.resource};}
- async revokeToken(client,request){for(const map of [this.tokens,this.refresh]){const key=hash(request.token);if(map.get(key)?.clientId===client.client_id)map.delete(key);}}
+ async verifyAccessToken(token){this.prune();const value=this.grant('access',hash(token));if(!value)throw new InvalidTokenError('Reconnect Ocean Vacations.');return {token,clientId:value.clientId,scopes:value.scopes,expiresAt:Math.floor(value.expires/1000),resource:value.resource};}
+ async revokeToken(client,request){for(const kind of ['access','refresh']){const key=hash(request.token);if(this.grant(kind,key)?.clientId===client.client_id)this.deleteGrant(kind,key);}await this.saveGrants();}
 }
 module.exports={ConnectorAuth};

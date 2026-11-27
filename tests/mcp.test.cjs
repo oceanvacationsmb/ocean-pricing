@@ -56,7 +56,7 @@ test('MCP discovery, unauthorized challenge and authenticated tool listing work 
  const server=connector.app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>server.close());const base='http://127.0.0.1:'+server.address().port;
  assert.equal((await fetch(base+'/.well-known/oauth-authorization-server')).status,200);
  const denied=await fetch(base+'/mcp',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/resource_metadata/);
- const token=connector.auth.issue({client_id:'test'},['guesty:read']);
+ const token=await connector.auth.issue({client_id:'test'},['guesty:read']);
  const response=await fetch(base+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}})});
  assert.equal(response.status,200);const data=await response.json();assert.equal(data.result.tools.length,8);
  const write=await fetch(base+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'update_nightly_rate',arguments:{listingId:'one',date:'2026-12-20',expectedCurrentRate:201,newRate:200,confirm:true}}})});
