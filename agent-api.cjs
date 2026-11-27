@@ -43,7 +43,7 @@ function createAgentApi({ store, providers, env = process.env, priceWriter = asy
       if (publicLocks) {
         if (req.method !== 'GET') throw fail(405, 'Read-only endpoint.');
         const origin = req.headers.origin;
-        const allowed = String(env.CALENDAR_ORIGIN || '').split(',').map(x => x.trim()).filter(Boolean);
+        const allowed = String(env.CALENDAR_ORIGIN || 'https://oceanvacationsmb.github.io').split(',').map(x => x.trim()).filter(Boolean);
         if (origin) {
           if (!allowed.includes(origin)) throw fail(403, 'Calendar origin is not configured.');
           res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
