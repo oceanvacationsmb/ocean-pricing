@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),crypto=re
 const {ConnectorAuth}=require('../mcp-auth.cjs');
 const {createMcpApp,createTools}=require('../mcp-server.cjs');
 test('browser sign-in survives two parallel connection attempts and completes token exchange',async t=>{
- const connector=createMcpApp({store:{data:{properties:[]}},providers:{},hosting:{origin:'http://127.0.0.1:8772',password:'test-password'}});
+ const connector=createMcpApp({store:{data:{properties:[]},save(){},async flush(){}},providers:{},hosting:{origin:'http://127.0.0.1:8772',password:'test-password'}});
  const server=connector.app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>server.close());const base='http://127.0.0.1:'+server.address().port;
  const registered=await fetch(base+'/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({redirect_uris:['https://chatgpt.com/callback'],token_endpoint_auth_method:'none',grant_types:['authorization_code','refresh_token'],response_types:['code']})});
  assert.equal(registered.status,201);const client=await registered.json();
@@ -24,6 +24,15 @@ test('restart-safe consent tickets reject tampering and a different password',()
  assert.equal(auth.open('broken'+ticket),null);
  assert.equal(new ConnectorAuth('https://example.com','different-password').open(ticket),null);
  assert.equal(auth.open(auth.seal({...entry,expires:Date.now()-1000})),null);
+});
+test('public OAuth registration survives a new auth instance and rejects client secrets',async()=>{
+ let saves=0,flushes=0;const store={data:{},save(){saves++;},async flush(){flushes++;}};
+ const first=new ConnectorAuth('https://example.com','test-password',store);
+ const client=await first.clientsStore.registerClient({redirect_uris:['https://chatgpt.com/callback'],token_endpoint_auth_method:'none',client_secret:'must-not-save'});
+ const restarted=new ConnectorAuth('https://example.com','test-password',store);
+ assert.equal((await restarted.clientsStore.getClient(client.client_id)).client_id,client.client_id);
+ assert.equal(JSON.stringify(store.data).includes('must-not-save'),false);assert.equal(saves,1);assert.equal(flushes,1);
+ await assert.rejects(first.clientsStore.registerClient({redirect_uris:['https://chatgpt.com/callback'],token_endpoint_auth_method:'client_secret_post'}));
 });
 test('OAuth binds codes to PKCE, client and redirect and rotates refresh tokens',async()=>{
  const auth=new ConnectorAuth('https://example.com','password');const client=await auth.clientsStore.registerClient({redirect_uris:['https://chatgpt.com/callback']});

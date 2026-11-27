@@ -59,8 +59,10 @@ unavailable/locked dates, and attempt read-back verification. Message sends use
 persisted action IDs to prevent duplicate retries; an uncertain send requires
 checking the conversation, not a new action ID. The comps UI remains read-only.
 
-OAuth clients, authorization codes, and access/refresh tokens are held in server
-memory. A Render restart or deployment requires reconnecting the custom connector.
+Public OAuth client registrations are saved in the existing private data store,
+so ChatGPT's registered client ID survives a restart. No client secrets are saved.
+Authorization codes and access/refresh tokens remain in server memory; a restart
+requires signing in again, but not creating a new connector registration.
 The password form carries an encrypted, ten-minute consent ticket so a restart
 between opening the form and submitting it does not discard that sign-in attempt.
 Changing the dashboard password invalidates outstanding consent tickets.

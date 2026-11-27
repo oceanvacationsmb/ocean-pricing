@@ -3,10 +3,13 @@ const {InvalidGrantError,InvalidTokenError,InvalidScopeError,InvalidRequestError
 const random=()=>crypto.randomBytes(32).toString('base64url');
 const hash=value=>crypto.createHash('sha256').update(value).digest('base64url');
 class ConnectorAuth{
- constructor(origin,password){this.origin=origin;this.password=password;this.clients=new Map();this.codes=new Map();this.tokens=new Map();this.refresh=new Map();this.pending=new Map();
-  this.clientsStore={getClient:async id=>this.clients.get(id),registerClient:async info=>{
-   if(this.clients.size>=500)throw new InvalidRequestError('Client limit reached.');
-   const client={...info,client_id:random(),client_id_issued_at:Math.floor(Date.now()/1000)};this.clients.set(client.client_id,client);return client;
+ constructor(origin,password,store=null){this.origin=origin;this.password=password;this.store=store;this.clients=new Map();this.codes=new Map();this.tokens=new Map();this.refresh=new Map();this.pending=new Map();
+  this.clientsStore={getClient:async id=>this.clients.get(id)||this.store?.data.mcpClients?.[id],registerClient:async info=>{
+   if(Math.max(this.clients.size,Object.keys(this.store?.data.mcpClients||{}).length)>=500)throw new InvalidRequestError('Client limit reached.');
+   if(info.token_endpoint_auth_method&&info.token_endpoint_auth_method!=='none')throw new InvalidRequestError('Use public OAuth client registration with PKCE (authentication method none).');
+   const client={redirect_uris:info.redirect_uris,grant_types:info.grant_types,response_types:info.response_types,token_endpoint_auth_method:'none',client_name:info.client_name,scope:info.scope,client_id:random(),client_id_issued_at:Math.floor(Date.now()/1000)};
+   if(this.store){this.store.data.mcpClients||={};this.store.data.mcpClients[client.client_id]=client;this.store.save();await this.store.flush();}
+   this.clients.set(client.client_id,client);return client;
   }};
  }
  prune(){const now=Date.now();for(const map of [this.codes,this.tokens,this.refresh,this.pending])for(const [key,value]of map)if(value.expires<now)map.delete(key);}

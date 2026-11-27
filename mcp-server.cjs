@@ -39,7 +39,7 @@ function createTools({store,providers}){
 }
 function createMcpApp({store,providers,hosting}){
  const app=express(),origin=hosting?.origin||'http://127.0.0.1:8772';
- const auth=new ConnectorAuth(origin,hosting?.password||process.env.ADMIN_PASSWORD||'');
+ const auth=new ConnectorAuth(origin,hosting?.password||process.env.ADMIN_PASSWORD||'',store);
  app.disable('x-powered-by');
  app.use((req,res,next)=>{res.set('Cache-Control','no-store');next();});
  app.use(mcpAuthRouter({provider:auth,issuerUrl:new URL(origin),resourceServerUrl:new URL(origin+'/mcp'),scopesSupported:['guesty:read','guesty:write'],resourceName:'Ocean Vacations Guesty'}));
