@@ -11,16 +11,18 @@ class DashboardAuth{
    this.sessions.delete(this.token(req));res.setHeader('Set-Cookie',['__Host-oceanLogin=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0','oceanPricing=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);this.redirect(res,'/login');return true;
   }
   if(route==='/login'){
-   if(req.method==='GET'){if(this.valid(req))this.redirect(res,'/');else this.page(res);return true;}
+   if(req.method==='GET'){if(this.valid(req)){const staffReturn=String(req.headers.cookie||'').split(';').some(value=>value.trim()==='__Host-oceanNext=staff-calendar');if(staffReturn)res.setHeader('Set-Cookie','__Host-oceanNext=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');this.redirect(res,staffReturn?'/staff-calendar/':'/');}else this.page(res);return true;}
    if(req.method!=='POST'||req.headers.origin!==this.hosting.origin){res.writeHead(403,{'Cache-Control':'no-store'});res.end('Request blocked.');return true;}
    let body='';for await(const chunk of req){body+=chunk;if(body.length>10000){res.writeHead(413);res.end();return true;}}
    const values=new URLSearchParams(body),supplied=Buffer.from((values.get('username')||'')+':'+(values.get('password')||'')).toString('base64');
    if(!require('./hosting.cjs').authorized('Basic '+supplied,this.hosting.password)){await new Promise(resolve=>setTimeout(resolve,250));this.page(res,true);return true;}
    for(const [token,expiry]of this.sessions)if(expiry<Date.now())this.sessions.delete(token);
-   const token=crypto.randomBytes(32).toString('hex');this.sessions.set(token,Date.now()+12*60*60*1000);res.setHeader('Set-Cookie','__Host-oceanLogin='+token+'; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200');this.redirect(res,'/');return true;
+   const token=crypto.randomBytes(32).toString('hex');this.sessions.set(token,Date.now()+12*60*60*1000);
+   const staffReturn=String(req.headers.cookie||'').split(';').some(value=>value.trim()==='__Host-oceanNext=staff-calendar');
+   res.setHeader('Set-Cookie',['__Host-oceanLogin='+token+'; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200','__Host-oceanNext=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);this.redirect(res,staffReturn?'/staff-calendar/':'/');return true;
   }
   if(route==='/style.css'&&req.method==='GET')return false;
-  if(!this.valid(req)){if(route.startsWith('/api/')){res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:'Your session ended. Sign in again.'}));}else this.redirect(res,'/login');return true;}
+  if(!this.valid(req)){if(route.startsWith('/api/')){res.writeHead(401,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:'Your session ended. Sign in again.'}));}else {if(route==='/staff-calendar'||route.startsWith('/staff-calendar/'))res.setHeader('Set-Cookie','__Host-oceanNext=staff-calendar; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=600');this.redirect(res,'/login');}return true;}
   return false;
  }
 }

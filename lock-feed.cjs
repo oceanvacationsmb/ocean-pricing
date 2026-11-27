@@ -1,6 +1,6 @@
 const { snapshot, authorized } = require('./agent-api.cjs');
 
-function createLockFeed({ store, providers, env = process.env }) {
+function createLockFeed({ store, providers, staffAuthorized = () => false, env = process.env }) {
   let latest = null;
   const lockProperties = new Map();
   return async (req, res, url) => {
@@ -12,7 +12,8 @@ function createLockFeed({ store, providers, env = process.env }) {
       res.end(JSON.stringify(data));
       return true;
     };
-    if (origin && !allowed.includes(origin) && !/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) return send(403, { error: 'Origin not allowed.' });
+    const staffRead = req.method === 'GET' && staffAuthorized(req);
+    if (origin && !allowed.includes(origin) && !/^chrome-extension:\/\/[a-p]{32}$/.test(origin) && !staffRead) return send(403, { error: 'Origin not allowed.' });
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
@@ -25,7 +26,7 @@ function createLockFeed({ store, providers, env = process.env }) {
     if (!['GET', 'POST'].includes(req.method)) return send(405, { error: 'Method not allowed.' });
     const uploadKey = env.EXTENSION_KEY || env.LOCK_COLLECTOR_KEY;
     const viewKey = env.CALENDAR_KEY || env.LOCK_VIEW_KEY;
-    if (!authorized(req, req.method === 'POST' ? uploadKey : viewKey)) return send(401, { error: 'Lock access key not accepted.' });
+    if (!staffRead && !authorized(req, req.method === 'POST' ? uploadKey : viewKey)) return send(401, { error: 'Lock access key not accepted.' });
     if (req.method === 'GET') return send(200, {
       ok: true, capturedAt: latest?.capturedAt || null, locks: latest?.locks || [],
       source: 'guesty-browser-collector', stale: !latest || Date.now() - Date.parse(latest.capturedAt) > 3600000,

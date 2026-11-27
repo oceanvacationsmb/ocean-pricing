@@ -5,7 +5,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
  const ratingUpdate=new (require('./ratings.cjs').RatingUpdate)(store,providers,ratingReader);
  const auth=hosting?new (require('./auth.cjs').DashboardAuth)(hosting):null;
  const agentApi=require('./agent-api.cjs').createAgentApi({store,providers});
- const lockFeed=require('./lock-feed.cjs').createLockFeed({store,providers});
+ const lockFeed=require('./lock-feed.cjs').createLockFeed({store,providers,staffAuthorized:req=>Boolean(auth&&auth.valid(req)&&(!req.headers.origin||req.headers.origin===hosting.origin))});
  const connector=require('./mcp-server.cjs').createMcpApp({store,providers,hosting});
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties.map(p=>({...p,airbnbListingId:store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId||null})),includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
@@ -20,6 +20,19 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
    if(await lockFeed(req,res,url))return;
    if(await agentApi(req,res,url))return;
    if(auth&&await auth.handle(req,res,route))return;
+   if(route==='/staff-calendar'){res.writeHead(303,{Location:'/staff-calendar/','Cache-Control':'no-store'});res.end();return;}
+   if(route.startsWith('/staff-calendar/')){
+    if(!auth)throw fail(403,'Staff calendar requires hosted sign-in.');
+    if(req.method!=='GET')throw fail(405,'Method not allowed.');
+    const relative=route.slice('/staff-calendar/'.length)||'index.html';
+    const allowed=['index.html','app.js','style.css','settings/','settings/index.html','settings/app.js','settings/style.css'];
+    if(!allowed.includes(relative))throw fail(404,'Not found.');
+    const file=path.join(__dirname,'staff-calendar',relative==='settings/'?'settings/index.html':relative);
+    res.setHeader('Cache-Control','no-store');
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://shared-calendar-api.onrender.com; img-src 'self' data: https:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');
+    res.end(fs.readFileSync(file));return;
+   }
    if(route.startsWith('/api/')){
     if(req.headers.origin&&req.headers.origin!==(hosting?hosting.origin:'http://'+host))throw fail(403,'Requests from another site are blocked.');
     if(req.headers['x-ocean-request']!=='1'||!String(req.headers.cookie||'').split(';').some(x=>x.trim()==='oceanPricing='+session))throw fail(403,'Reload the app to reconnect your local session.');

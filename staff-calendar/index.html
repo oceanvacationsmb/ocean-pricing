@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All Properties Calendar | Ocean Vacations</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <link rel="stylesheet" href="./style.css?v=132" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div>
+        <h1>OCEAN VACATIONS</h1>
+      </div>
+
+      <div class="header-actions">
+        <a class="settings-link" href="./settings/">Settings</a>
+        <button id="todayBtn">Today</button>
+      </div>
+    </header>
+
+    <div class="filters">
+      <select id="cityFilterSelect" class="city-select">
+        <option value="">FILTER</option>
+        <option value="SOUTH">SOUTH END</option>
+        <option value="NMB">NORTH END</option>
+        <option value="MB">CENTRAL MB</option>
+        <option value="ELEVATORS">ELEVATORS</option>
+        <option value="PAYMENT_ISSUES">PAYMENT ISSUES</option>
+        <option value="POOLS">POOLS</option>
+      </select>
+
+      <span class="filter-divider"></span>
+
+      <div class="task-menu">
+        <button id="taskMenuBtn" class="filter-btn tasks-filter-btn" type="button">
+          <span id="taskMenuLabel">TASKS</span>
+          <span id="totalTasksBadge" class="total-tasks-badge hidden">0</span>
+          <span class="task-menu-caret" aria-hidden="true">⌄</span>
+        </button>
+        <div id="taskMenuDropdown" class="task-menu-dropdown hidden">
+          <button id="tasksFilterBtn" class="task-menu-item" type="button">
+            <span>ACTIVE TASKS</span>
+            <span id="taskMenuActiveCount" class="task-menu-count hidden">0</span>
+          </button>
+          <button id="taskListBtn" class="task-menu-item" type="button">TASK LIST</button>
+          <button id="newTaskBtn" class="task-menu-item" type="button">ADD NEW TASK</button>
+          <button id="completedTasksBtn" class="task-menu-item" type="button">COMPLETED TASKS</button>
+        </div>
+      </div>
+
+      <div class="task-menu lock-menu">
+        <button id="lockMenuBtn" class="filter-btn locks-filter-btn" type="button">
+          <span id="lockMenuLabel">LOCKS</span>
+          <span id="lockAlertBadge" class="total-tasks-badge hidden">0</span>
+        </button>
+      </div>
+
+      <button id="gapsBtn" class="filter-btn gaps-btn" type="button">GAPS</button>
+    </div>
+
+    <div class="lock-refresh-bar">
+      <button id="refreshLocksBtn" class="filter-btn" type="button">Refresh locks</button>
+      <span id="lockRefreshStatus" role="status"></span>
+    </div>
+
+    <div id="filteredListPanel" class="filtered-list-panel hidden">
+      <div class="filtered-list-head">
+        <strong id="filteredListTitle">Filtered stays</strong>
+        <span id="filteredListCount"></span>
+      </div>
+      <div id="filteredListBody" class="filtered-list-body"></div>
+    </div>
+
+    <main class="calendar-shell">
+      <aside class="property-side">
+        <div class="property-head">
+          <span class="property-head-name">Property</span>
+          <span class="property-head-lock">Lock</span>
+          <span class="property-head-task">Task</span>
+        </div>
+        <div id="propertyList"></div>
+      </aside>
+
+      <section id="calendarWrap" class="calendar-wrap">
+        <div id="calendar" class="calendar">
+          <div class="loading">Loading calendar...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Gaps Popup -->
+  <div id="gapsModal" class="modal hidden">
+    <div class="modal-card gaps-card">
+      <div class="modal-head">
+        <strong>Gaps</strong>
+        <button id="closeGapsBtn" class="modal-x">×</button>
+      </div>
+      <div class="gaps-actions">
+        <button id="loadGapsBtn" class="modal-btn secondary" type="button">Load Properties</button>
+        <button id="scanGapsBtn" class="modal-btn primary" type="button">Scan &amp; Adjust</button>
+      </div>
+      <div id="gapsStatus" class="gaps-status">Open gaps and scan without entering the password.</div>
+      <div id="gapsResults" class="gaps-results"></div>
+    </div>
+  </div>
+
+  <!-- New Task Popup -->
+  <div id="newTaskModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <strong>New Task</strong>
+        <button id="closeNewTaskBtn" class="modal-x">×</button>
+      </div>
+
+      <label class="modal-label">Pick property</label>
+      <select id="taskPropertySelect" class="modal-select">
+        <option value="">Select property</option>
+      </select>
+
+      <label class="modal-label">Task / problem</label>
+      <textarea id="taskTextInput" class="modal-textarea" placeholder="Tell us whats going on!"></textarea>
+
+      <label class="modal-label">Person / vendor</label>
+      <div class="vendor-row">
+        <select id="taskAssigneeSelect" class="modal-select">
+          <option value="">Choose person</option>
+        </select>
+        <button id="showAddVendorBtn" class="modal-btn secondary" type="button">Add New</button>
+      </div>
+
+      <div id="addVendorBox" class="add-vendor-box hidden">
+        <input id="newVendorInput" class="modal-input" type="text" placeholder="New vendor name" />
+        <button id="saveVendorBtn" class="modal-btn primary" type="button">Save Vendor</button>
+      </div>
+
+      <label class="modal-label">Added by</label>
+      <div class="vendor-row">
+        <select id="taskCreatorSelect" class="modal-select">
+          <option value="">Choose name</option>
+        </select>
+        <button id="showManageCreatorsBtn" class="modal-btn secondary" type="button">Names</button>
+      </div>
+
+      <div id="manageCreatorsBox" class="manage-creators-box hidden">
+        <div class="add-vendor-box">
+          <input id="newCreatorInput" class="modal-input" type="text" placeholder="New name" />
+          <button id="saveCreatorBtn" class="modal-btn primary" type="button">Save Name</button>
+        </div>
+        <div id="creatorNamesList" class="creator-names-list"></div>
+      </div>
+
+      <label class="modal-label">Pictures / videos</label>
+      <input id="taskMediaInput" class="modal-file" type="file" accept="image/*,video/*" multiple />
+      <div id="taskMediaPreview" class="media-preview"></div>
+
+      <div id="newTaskError" class="modal-error hidden"></div>
+
+      <div class="modal-actions">
+        <button id="cancelNewTaskBtn" class="modal-btn secondary">Close</button>
+        <button id="saveTaskBtn" class="modal-btn primary">Save Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Tasks Popup -->
+  <div id="viewTasksModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <strong id="viewTasksTitle">Tasks</strong>
+        <button id="closeViewTasksBtn" class="modal-x">×</button>
+      </div>
+
+      <div id="tasksList" class="tasks-list"></div>
+
+      <div class="modal-actions">
+        <button id="addTaskForPropertyBtn" class="modal-btn primary">Add Task</button>
+        <button id="doneViewTasksBtn" class="modal-btn secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="taskAlertsModal" class="modal hidden">
+    <div class="modal-card task-alerts-card">
+      <div class="modal-head">
+        <strong>TASK ALERTS</strong>
+        <button id="closeTaskAlertsBtn" class="modal-x">×</button>
+      </div>
+
+      <div class="task-alert-filters">
+        <select id="taskAlertAreaFilter" class="modal-select">
+          <option value="">ALL AREAS</option>
+          <option value="SOUTH">SOUTH END</option>
+          <option value="NMB">NORTH END</option>
+          <option value="MB">CENTRAL MYRTLE BEACH</option>
+        </select>
+        <select id="taskAlertPersonFilter" class="modal-select">
+          <option value="">ALL PEOPLE / VENDORS</option>
+        </select>
+      </div>
+
+      <section class="task-alert-section">
+        <div class="task-alert-title">
+          <span>RECENTLY ADDED</span>
+          <span id="recentTasksCount">0</span>
+        </div>
+        <div id="recentTasksList" class="task-alert-list"></div>
+      </section>
+
+      <section class="task-alert-section urgent">
+        <div class="task-alert-title">
+          <span>URGENT TASKS</span>
+          <span id="urgentTasksCount">0</span>
+        </div>
+        <div id="urgentTasksList" class="task-alert-list"></div>
+      </section>
+
+      <div class="modal-actions">
+        <button id="openTaskAlertsListBtn" class="modal-btn primary">Task List</button>
+        <button id="doneTaskAlertsBtn" class="modal-btn secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js?v=146"></script>
+</body>
+</html>
