@@ -33,6 +33,7 @@ function createAgentApi({ store, providers, env = process.env, priceWriter = asy
   });
   if (!response.ok) throw fail(502, 'Guesty price update failed (' + response.status + '). No automatic retry was made.');
 } }) {
+  const readLocks = require('./locks.cjs').createLockReader(providers, env);
   return async (req, res, url) => {
     const route = url.pathname;
     const publicLocks = route === '/api/locks-status';
@@ -47,10 +48,12 @@ function createAgentApi({ store, providers, env = process.env, priceWriter = asy
           if (!allowed.includes(origin)) throw fail(403, 'Calendar origin is not configured.');
           res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
         }
-        const saved = store.data.lockSnapshot;
-        if (!saved) return send(503, { ok: false, locks: [], capturedAt: null, warning: 'No lock readings have been collected yet.' });
-        const stale = Date.now() - Date.parse(saved.capturedAt) > 30 * 60000;
-        return send(200, { ok: true, ...saved, stale, ...(stale ? { warning: 'Saved lock readings are over 30 minutes old.' } : {}) });
+        try {
+          return send(200, { ok: true, ...await readLocks() });
+        } catch (error) {
+          return send(error.status || 502, { ok: false, locks: [], capturedAt: null, stale: true,
+            warning: error.status ? error.message : 'Lock connection failed. No fresh readings are available.' });
+        }
       }
       const write = req.method !== 'GET';
       if (!authorized(req, write ? env.DOT_WRITE_KEY : env.DOT_READ_KEY)) throw fail(401, 'Agent access is not authorized.');

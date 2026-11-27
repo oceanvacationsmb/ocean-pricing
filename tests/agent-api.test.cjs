@@ -15,5 +15,5 @@ test('agent routes separate read and write credentials and restrict rate payload
  assert.equal((await request('PUT','/api/agent/prices','writer',payload)).status,200);
  assert.deepEqual(calls[0][1],{startDate:'2027-01-10',endDate:'2027-01-12',price:200});
  assert.equal((await request('PUT','/api/agent/prices','writer',{...payload,startDate:'2027-02-30'})).status,400);
- assert.equal((await request('GET','/api/locks-status','',{})).status,503);
+ assert.equal((await request('GET','/api/locks-status','',{})).status,502);
 });
