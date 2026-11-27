@@ -43,6 +43,37 @@ Provider documentation: [Guesty Open API](https://open-api-docs.guesty.com/) and
 
 ## Render deployment
 
+## Guesty MCP Connector
+
+The connector URL is `https://ocean-pricing.onrender.com/mcp`. Add it as a custom
+MCP server with OAuth authentication. The consent screen uses the existing Ocean
+Pricing dashboard password; Guesty credentials remain server-side. No additional
+Render environment variables are needed for MCP. Do not configure authentication
+as "None" or share Guesty tokens with a chat.
+
+Tools: `list_properties`, `read_nightly_rate`, `read_inbox`, `read_messages`,
+`update_nightly_rate`, and `send_guest_reply`. Read tools need `guesty:read`;
+write tools additionally need `guesty:write` and explicit user instructions.
+Rate changes affect one date only and require the expected live rate, reject
+unavailable/locked dates, and attempt read-back verification. Message sends use
+persisted action IDs to prevent duplicate retries; an uncertain send requires
+checking the conversation, not a new action ID. The comps UI remains read-only.
+
+OAuth clients, authorization codes, and access/refresh tokens are held in server
+memory. A Render restart or deployment requires reconnecting the custom connector.
+Clients use PKCE S256; authorization codes are single-use. OAuth credentials are
+never written to GitHub data backups. Message-action receipts contain no body text.
+
+Maintenance: source is `mcp-server.cjs` and `mcp-auth.cjs`; tests are
+`tests/mcp.test.cjs`. Run `npm test`, commit, and push to `main` for Render to deploy.
+Refresh the connector's tool list after changing tools. Existing shared-calendar
+task connections are independent and must not be modified by this connector.
+
+This connector does not solve the separate Guesty Locks Manager authentication
+problem. Do not represent saved lock snapshots as current live lock readings.
+
+## Render Deployment Settings
+
 Use Node, branch main, build command `npm install`, start command `npm start`.
 For Render Free, set `GITHUB_DATA_REPO=oceanvacationsmb/ocean-pricing-data` and `GITHUB_DATA_TOKEN` to a fine-grained credential with Contents read/write limited to that private repository. Keep a README on its main branch. Do not set DATA_DIR for this option.
 Set `ADMIN_PASSWORD` (at least 8 characters).

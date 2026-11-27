@@ -5,6 +5,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
  const ratingUpdate=new (require('./ratings.cjs').RatingUpdate)(store,providers,ratingReader);
  const auth=hosting?new (require('./auth.cjs').DashboardAuth)(hosting):null;
  const agentApi=require('./agent-api.cjs').createAgentApi({store,providers});
+ const connector=require('./mcp-server.cjs').createMcpApp({store,providers,hosting});
  const send=async(res,status,body)=>{if(status<400){try{await store.flush();}catch(error){status=503;body={error:error.message||'GitHub saving failed. Your change is not confirmed saved.'};}}res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
  const bootstrap=()=>({properties:store.data.properties.map(p=>({...p,airbnbListingId:store.data.propertyLinks?.[p.id]?.airbnbListingId||p.airbnbListingId||null})),includedPropertyIds:store.data.includedPropertyIds??null,propertyOrder:store.data.propertyOrder||[],comps:store.data.comps,assignments:Object.fromEntries(store.data.properties.map(p=>[p.id,store.assignment(p.id)])),compMasters:store.data.compMasters||{},connections:providers.status(),hosted:Boolean(hosting),renderKeyUpdates:Boolean(hosting&&renderKeys),readOnly:true,usage:store.data.usage.slice(-300),activeJob:scans.activeJob?scans.jobs.get(scans.activeJob):null});
  const server=http.createServer(async(req,res)=>{
@@ -14,6 +15,7 @@ function createApp({directory=path.join(__dirname,'.local'),providers=new Provid
   const url=new URL(req.url,'http://'+host),route=url.pathname;
   res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','same-origin');
   try{
+   if(route==='/mcp'||route.startsWith('/.well-known/')||['/authorize','/token','/register','/revoke','/connect/approve'].includes(route))return connector.app(req,res);
    if(await agentApi(req,res,url))return;
    if(auth&&await auth.handle(req,res,route))return;
    if(route.startsWith('/api/')){
