@@ -1,6 +1,17 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createLockFeed } = require('../lock-feed.cjs');
+test('clear key names take precedence while legacy names remain supported', async () => {
+  const feed = createLockFeed({ store: { data: { properties: [] } }, env: { EXTENSION_KEY: 'new-upload', CALENDAR_KEY: 'new-view', LOCK_VIEW_KEY: 'old-view' } });
+  async function call(key) {
+    const req = { method: 'GET', headers: { authorization: 'Bearer ' + key } };
+    const res = { setHeader() {}, writeHead(status) { this.status = status; }, end() {} };
+    await feed(req, res, new URL('https://example.com/api/lock-feed')); return res.status;
+  }
+  assert.equal(await call('new-view'), 200);
+  assert.equal(await call('old-view'), 401);
+  assert.equal(await call('new-upload'), 401);
+});
 test('all-lock mode requires complete inventory and retains last good collection', async () => {
   const properties = Array.from({ length: 26 }, (_, i) => ({ id: String(i), name: 'Property ' + i }));
   const feed = createLockFeed({ store: { data: { properties } }, env: { LOCK_COLLECTOR_KEY: 'upload', LOCK_VIEW_KEY: 'staff', LOCK_EXPECTED_LISTING_IDS: 'all' } });

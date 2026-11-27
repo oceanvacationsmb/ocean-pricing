@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       if (typeof lock.listingId !== 'string' || ![true, false, null].includes(lock.online) || (lock.batteryPercent !== null && (typeof lock.batteryPercent !== 'number' || !Number.isFinite(lock.batteryPercent) || lock.batteryPercent < 0 || lock.batteryPercent > 100))) throw Error('Invalid lock values.');
       return { listingId: lock.listingId, batteryPercent: lock.batteryPercent, online: lock.online };
     });
-    if (!collectorKey) throw Error('Save the lock-only upload key first.');
+    if (!collectorKey) throw Error('Save EXTENSION_KEY in the extension settings first.');
     const response = await fetch(endpoint, {
       method: 'POST', headers: { Authorization: 'Bearer ' + collectorKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ complete: true, capturedAt: message.capturedAt, locks }), signal: AbortSignal.timeout(45000)

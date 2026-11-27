@@ -22,7 +22,9 @@ function createLockFeed({ store, env = process.env }) {
       return send(204, undefined);
     }
     if (!['GET', 'POST'].includes(req.method)) return send(405, { error: 'Method not allowed.' });
-    if (!authorized(req, req.method === 'POST' ? env.LOCK_COLLECTOR_KEY : env.LOCK_VIEW_KEY)) return send(401, { error: 'Lock access key not accepted.' });
+    const uploadKey = env.EXTENSION_KEY || env.LOCK_COLLECTOR_KEY;
+    const viewKey = env.CALENDAR_KEY || env.LOCK_VIEW_KEY;
+    if (!authorized(req, req.method === 'POST' ? uploadKey : viewKey)) return send(401, { error: 'Lock access key not accepted.' });
     if (req.method === 'GET') return send(200, {
       ok: true, capturedAt: latest?.capturedAt || null, locks: latest?.locks || [],
       source: 'guesty-browser-collector', stale: !latest || Date.now() - Date.parse(latest.capturedAt) > 3600000,

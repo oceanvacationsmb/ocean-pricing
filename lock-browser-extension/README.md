@@ -10,8 +10,9 @@ This extension observes successful lock-list responses in your signed-in Guesty 
 
 Deploy the accompanying ocean-pricing server change, then add these variables to that Render service:
 
-- `LOCK_COLLECTOR_KEY`: a new random secret used only for lock uploads. Do not reuse a Guesty token, dashboard password, or Dot write key.
-- `LOCK_VIEW_KEY`: a DIFFERENT random secret for staff to read the lock feed.
+- `EXTENSION_KEY`: a new random secret used only for lock uploads. Do not reuse a Guesty token, dashboard password, or Dot write key.
+- `CALENDAR_KEY`: a DIFFERENT random secret for staff to read the lock feed.
+- The old `LOCK_COLLECTOR_KEY` and `LOCK_VIEW_KEY` names remain fallbacks. New names take precedence if both exist. Rename variables without changing their values to preserve existing extension/calendar access.
 - `LOCK_EXPECTED_LISTING_IDS`: `68db1a47ccc0790022ab80c6` for the 113B-13N pilot.
 - `CALENDAR_ORIGIN`: `https://oceanvacationsmb.github.io` (keep any other existing required origins, comma separated).
 
@@ -22,10 +23,10 @@ The dedicated `/api/lock-feed` endpoint uses separate upload and viewing credent
 ## Install in Chrome
 
 1. Open `chrome://extensions`, enable Developer mode, click Load unpacked, and select this folder.
-2. Open the extension popup. Enter `LOCK_COLLECTOR_KEY`, keep the prefilled test listing ID, enable collection, and Save.
+2. Open the extension popup. Enter `EXTENSION_KEY`, keep the prefilled test listing ID, enable collection, and Save.
 3. Open Guesty Locks Manager and sign in normally. Click Refresh now in the popup.
 4. Check that the popup reports one successful upload. If Guesty redirected to login, sign in, reopen Locks Manager, and refresh again.
-5. Deploy the calendar changes. Click Staff lock access and enter `LOCK_VIEW_KEY`. Compare 113B-13N against Guesty. This is the latest Guesty response, not a direct poll of the physical lock.
+5. Deploy the calendar changes. Click Staff lock access and enter `CALENDAR_KEY`. Compare 113B-13N against Guesty. This is the latest Guesty response, not a direct poll of the physical lock.
 
 When enabled, the extension reloads one open Locks Manager tab every 15 minutes. Leave a dedicated Guesty lock tab open; reloading may interrupt use of that tab. It does not open tabs or bypass login/MFA. Chrome must be running and the computer awake. There is no guaranteed weekly sign-in schedule: Guesty decides session expiry. Popup timestamps indicate successful uploads, not merely successful page loads.
 
