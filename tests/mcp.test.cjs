@@ -11,10 +11,19 @@ test('browser sign-in survives two parallel connection attempts and completes to
  const first=await fetch(base+'/authorize?'+query);assert.equal(first.status,200);const html=await first.text();
  const ticket=html.match(/name="ticket" value="([^"]+)"/)[1];const cookie=first.headers.get('set-cookie').split(';')[0];
  const second=await fetch(base+'/authorize?'+query);assert.equal(second.status,200);const secondCookie=second.headers.get('set-cookie').split(';')[0];
+ // Simulate losing process-local registration and pending state during deployment.
+ connector.auth.pending.clear();connector.auth.clients.clear();
  const approved=await fetch(base+'/connect/approve',{method:'POST',redirect:'manual',headers:{Origin:'http://127.0.0.1:8772',Cookie:cookie+'; '+secondCookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket,password:'test-password'})});
  assert.equal(approved.status,303);const callback=new URL(approved.headers.get('location'));assert.equal(callback.searchParams.get('state'),'test-state');
  const exchanged=await fetch(base+'/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:client.client_id,code:callback.searchParams.get('code'),code_verifier:verifier,redirect_uri:'https://chatgpt.com/callback',resource:'http://127.0.0.1:8772/mcp'})});
  const tokenBody=await exchanged.json();assert.equal(exchanged.status,200,JSON.stringify(tokenBody));assert.ok(tokenBody.access_token);
+});
+test('restart-safe consent tickets reject tampering and a different password',()=>{
+ const auth=new ConnectorAuth('https://example.com','test-password'),entry={expires:Date.now()+60000,nonce:'test'};
+ const ticket=auth.seal(entry);assert.deepEqual(auth.open(ticket),entry);
+ assert.equal(auth.open('broken'+ticket),null);
+ assert.equal(new ConnectorAuth('https://example.com','different-password').open(ticket),null);
+ assert.equal(auth.open(auth.seal({...entry,expires:Date.now()-1000})),null);
 });
 test('OAuth binds codes to PKCE, client and redirect and rotates refresh tokens',async()=>{
  const auth=new ConnectorAuth('https://example.com','password');const client=await auth.clientsStore.registerClient({redirect_uris:['https://chatgpt.com/callback']});

@@ -61,6 +61,9 @@ checking the conversation, not a new action ID. The comps UI remains read-only.
 
 OAuth clients, authorization codes, and access/refresh tokens are held in server
 memory. A Render restart or deployment requires reconnecting the custom connector.
+The password form carries an encrypted, ten-minute consent ticket so a restart
+between opening the form and submitting it does not discard that sign-in attempt.
+Changing the dashboard password invalidates outstanding consent tickets.
 Clients use PKCE S256; authorization codes are single-use. OAuth credentials are
 never written to GitHub data backups. Message-action receipts contain no body text.
 
