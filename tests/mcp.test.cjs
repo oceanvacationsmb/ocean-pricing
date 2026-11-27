@@ -1,6 +1,21 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {ConnectorAuth}=require('../mcp-auth.cjs');
 const {createMcpApp,createTools}=require('../mcp-server.cjs');
+test('browser sign-in survives two parallel connection attempts and completes token exchange',async t=>{
+ const connector=createMcpApp({store:{data:{properties:[]}},providers:{},hosting:{origin:'http://127.0.0.1:8772',password:'test-password'}});
+ const server=connector.app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>server.close());const base='http://127.0.0.1:'+server.address().port;
+ const registered=await fetch(base+'/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({redirect_uris:['https://chatgpt.com/callback'],token_endpoint_auth_method:'none',grant_types:['authorization_code','refresh_token'],response_types:['code']})});
+ assert.equal(registered.status,201);const client=await registered.json();
+ const verifier='b'.repeat(50),challenge=crypto.createHash('sha256').update(verifier).digest('base64url');
+ const query=new URLSearchParams({client_id:client.client_id,response_type:'code',redirect_uri:'https://chatgpt.com/callback',code_challenge:challenge,code_challenge_method:'S256',scope:'guesty:read guesty:write',state:'test-state',resource:'http://127.0.0.1:8772/mcp'});
+ const first=await fetch(base+'/authorize?'+query);assert.equal(first.status,200);const html=await first.text();
+ const ticket=html.match(/name="ticket" value="([^"]+)"/)[1];const cookie=first.headers.get('set-cookie').split(';')[0];
+ const second=await fetch(base+'/authorize?'+query);assert.equal(second.status,200);const secondCookie=second.headers.get('set-cookie').split(';')[0];
+ const approved=await fetch(base+'/connect/approve',{method:'POST',redirect:'manual',headers:{Origin:'http://127.0.0.1:8772',Cookie:cookie+'; '+secondCookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket,password:'test-password'})});
+ assert.equal(approved.status,303);const callback=new URL(approved.headers.get('location'));assert.equal(callback.searchParams.get('state'),'test-state');
+ const exchanged=await fetch(base+'/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:client.client_id,code:callback.searchParams.get('code'),code_verifier:verifier,redirect_uri:'https://chatgpt.com/callback',resource:'http://127.0.0.1:8772/mcp'})});
+ const tokenBody=await exchanged.json();assert.equal(exchanged.status,200,JSON.stringify(tokenBody));assert.ok(tokenBody.access_token);
+});
 test('OAuth binds codes to PKCE, client and redirect and rotates refresh tokens',async()=>{
  const auth=new ConnectorAuth('https://example.com','password');const client=await auth.clientsStore.registerClient({redirect_uris:['https://chatgpt.com/callback']});
  const verifier='a'.repeat(50),challenge=crypto.createHash('sha256').update(verifier).digest('base64url');
