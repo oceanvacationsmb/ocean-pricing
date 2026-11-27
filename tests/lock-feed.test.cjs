@@ -1,6 +1,21 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createLockFeed } = require('../lock-feed.cjs');
+test('all-lock mode requires complete inventory and retains last good collection', async () => {
+  const properties = Array.from({ length: 26 }, (_, i) => ({ id: String(i), name: 'Property ' + i }));
+  const feed = createLockFeed({ store: { data: { properties } }, env: { LOCK_COLLECTOR_KEY: 'upload', LOCK_VIEW_KEY: 'staff', LOCK_EXPECTED_LISTING_IDS: 'all' } });
+  async function call(method, input) {
+    const req = { method, headers: { authorization: 'Bearer ' + (method === 'GET' ? 'staff' : 'upload') }, async *[Symbol.asyncIterator]() { yield JSON.stringify(input); } };
+    const res = { setHeader() {}, writeHead(status) { this.status = status; }, end(text) { this.body = JSON.parse(text); } };
+    await feed(req, res, new URL('https://example.com/api/lock-feed')); return res;
+  }
+  const locks = properties.map(p => ({ listingId: p.id, batteryPercent: 94, online: true }));
+  const capturedAt = new Date(Date.now() - 1000).toISOString();
+  assert.equal((await call('POST', { complete: true, capturedAt, locks: locks.slice(0, 1) })).status, 400);
+  assert.equal((await call('POST', { complete: true, capturedAt, locks })).status, 200);
+  assert.equal((await call('POST', { complete: true, capturedAt: new Date().toISOString(), locks: locks.slice(0, 25) })).status, 400);
+  assert.equal((await call('GET')).body.locks.length, 26);
+});
 test('private lock feed isolates credentials, validates complete scope, and never persists to GitHub', async () => {
   const feed = createLockFeed({ store: { data: { properties: [{ id: 'one', name: '113' }] }, save() { throw Error('Must not persist'); } }, env: { LOCK_COLLECTOR_KEY: 'upload', LOCK_VIEW_KEY: 'staff', LOCK_EXPECTED_LISTING_IDS: 'one' } });
   async function call(method, key, input, origin) {

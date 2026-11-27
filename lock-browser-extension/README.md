@@ -1,5 +1,9 @@
 # Ocean Vacations lock reader: one-property pilot
 
+## All-lock rollout (0.2.0)
+
+After verifying the pilot, change Render `LOCK_EXPECTED_LISTING_IDS` to `all`. The server requires at least 26 unique known properties (override with `LOCK_EXPECTED_COUNT` only after verifying inventory) and rejects collections missing previously seen properties. Reload this unpacked extension, enable All linked locks, Save, and Refresh now. Existing upload/view keys remain unchanged. Automatic collection continues every 15 minutes while the signed-in Guesty tab and Chrome are open. Removal of a linked property requires an intentional server configuration/restart; incomplete refreshes do not erase last good readings.
+
 This extension observes successful lock-list responses in your signed-in Guesty tab. It never reads Authorization headers, cookies, passwords, or access codes. It forwards only listing ID, battery percentage, device online status, and collection time. No lock or Guesty write operation is implemented.
 
 ## Server setup (required before installation testing)

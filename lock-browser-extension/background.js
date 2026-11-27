@@ -4,7 +4,10 @@ chrome.runtime.onInstalled.addListener(() => chrome.alarms.create('refresh-locks
 chrome.runtime.onStartup.addListener(() => chrome.alarms.create('refresh-locks', { periodInMinutes: 15 }));
 async function refresh() {
   const { enabled } = await chrome.storage.local.get('enabled');
-  if (!enabled) return;
+  if (!enabled) {
+    await chrome.storage.local.set({ status: 'Enable collection and click Save first.' });
+    return;
+  }
   const tabs = await chrome.tabs.query({ url: 'https://app.guesty.com/integrations/guesty-locks-manager/locks/linked*' });
   if (!tabs.length) {
     await chrome.storage.local.set({ status: 'Open Guesty Locks Manager and sign in. Last readings were kept.' });
@@ -16,12 +19,12 @@ async function refresh() {
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'refresh-locks') refresh().catch(() => {}); });
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
-    if (message.type === 'refresh' && !sender.tab) { await refresh(); return { ok: true }; }
+    if (message.type === 'refresh' && sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('popup.html')) { await refresh(); return { ok: true }; }
     if (message.type !== 'readings' || !sender.tab || new URL(sender.url).origin !== 'https://app.guesty.com') return { ok: false };
-    const { enabled, collectorKey, listingId } = await chrome.storage.local.get(['enabled', 'collectorKey', 'listingId']);
+    const { enabled, collectorKey, listingId, allLocks } = await chrome.storage.local.get(['enabled', 'collectorKey', 'listingId', 'allLocks']);
     if (!enabled) return { ok: false };
     if (!Array.isArray(message.locks) || !message.locks.length || message.locks.length > 200) throw Error('Invalid collection.');
-    const rows = listingId ? message.locks.filter(lock => lock.listingId === listingId) : message.locks;
+    const rows = allLocks ? message.locks : listingId ? message.locks.filter(lock => lock.listingId === listingId) : [];
     if (!rows.length) throw Error('Test property was not found. Previous readings were kept.');
     const locks = rows.map(lock => {
       if (typeof lock.listingId !== 'string' || ![true, false, null].includes(lock.online) || (lock.batteryPercent !== null && (typeof lock.batteryPercent !== 'number' || !Number.isFinite(lock.batteryPercent) || lock.batteryPercent < 0 || lock.batteryPercent > 100))) throw Error('Invalid lock values.');

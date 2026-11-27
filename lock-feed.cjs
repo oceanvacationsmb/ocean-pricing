@@ -40,7 +40,10 @@ function createLockFeed({ store, env = process.env }) {
       const next = snapshot(input, store.data.properties);
       if (latest && Date.parse(next.capturedAt) <= Date.parse(latest.capturedAt)) return send(409, { error: 'Older readings were rejected.' });
       const expected = String(env.LOCK_EXPECTED_LISTING_IDS || '').split(',').map(x => x.trim()).filter(Boolean);
-      if (!expected.length || expected.some(id => !next.locks.some(lock => lock.listingId === id)) || next.locks.some(lock => !expected.includes(lock.listingId))) return send(400, { error: 'Collection does not match the configured test properties.' });
+      if (expected.length === 1 && expected[0] === 'all') {
+        const minimum = Math.max(Number(env.LOCK_EXPECTED_COUNT || 26), latest?.locks.length || 0);
+        if (!Number.isInteger(minimum) || minimum < 1 || next.locks.length < minimum || latest?.locks.some(old => !next.locks.some(lock => lock.listingId === old.listingId))) return send(400, { error: 'Incomplete lock collection. Previous readings were kept.' });
+      } else if (!expected.length || expected.some(id => !next.locks.some(lock => lock.listingId === id)) || next.locks.some(lock => !expected.includes(lock.listingId))) return send(400, { error: 'Collection does not match the configured test properties.' });
       latest = { ...next, source: 'guesty-browser-collector' };
       return send(200, { ok: true, count: latest.locks.length, capturedAt: latest.capturedAt });
     } catch (error) {
